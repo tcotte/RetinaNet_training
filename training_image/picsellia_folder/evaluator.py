@@ -1,3 +1,5 @@
+from typing import List, Dict
+
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -5,7 +7,13 @@ from picsellia import Experiment
 from picsellia.types.enums import InferenceType
 
 
-def plot_precision_recall_curve(validation_metrics: dict, recall_thresholds: list[float]) -> plt.plot:
+def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:
+    """
+    Plot precision-recall curve depending on validation metrics.
+    :param validation_metrics: validation COCO metrics at the end of the training
+    :param recall_thresholds: recall thresholds used to compute the validation metric
+    :return: plot of the precision-recall curve
+    """
     recall_values = np.array(recall_thresholds)
     precision_values = np.array(
         [validation_metrics['precision'][0][i][0][0][-1] for i in range(len(recall_thresholds))])
@@ -42,8 +50,19 @@ def plot_precision_recall_curve(validation_metrics: dict, recall_thresholds: lis
 
 
 def fill_picsellia_evaluation_tab(model: torch.nn.Module, data_loader, experiment: Experiment,
-                                  dataset_version_name: str,
-                                  device, batch_size: int):
+                                  dataset_version_name: str, device, batch_size: int = 1) -> None:
+    """
+    Fill picsellia evaluation tab to have a visual representation of the inferences on the dataset split sent via
+    loader.
+    WARNING: This function only works with a batch size of 1.
+    TODO: Enables this function to work with a bigger batch size
+    :param model: model used to do the predictions
+    :param data_loader: dataloader which gathers the data to predict on
+    :param experiment: Picsellia experiment where the predictions will be saved
+    :param dataset_version_name: name of the dataset version on which the predictions will be done
+    :param device: device which will compute the predictions
+    :param batch_size: size of the batch to use for predictions
+    """
     dataset_version = experiment.get_dataset(name=dataset_version_name)
     picsellia_labels = dataset_version.list_labels()
 

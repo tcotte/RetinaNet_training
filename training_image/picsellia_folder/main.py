@@ -1,13 +1,14 @@
 import logging
 import os
 import shutil
+import typing
 import zipfile
 from typing import Union
 
 import torch
 import yaml
 import albumentations as A
-from albumentations import ToTensorV2
+from albumentations.pytorch import ToTensorV2
 from dotenv import load_dotenv
 import picsellia
 from picsellia import Client, ModelVersion, DatasetVersion
@@ -18,12 +19,12 @@ from torch.utils.data import DataLoader
 
 from collections.abc import MutableMapping
 
-from src.dataset import PascalVOCDataset, PascalVOCTestDataset
-from src.evaluator import fill_picsellia_evaluation_tab
-from src.loggers.picsellia_logger import PicselliaLogger
-from src.model_retinanet import collate_fn, build_retinanet_model
-from src.retinanet_parameters import TrainingParameters
-from src.trainer import train_model
+from dataset import PascalVOCDataset, PascalVOCTestDataset
+from evaluator import fill_picsellia_evaluation_tab
+from picsellia_logger import PicselliaLogger
+from model_retinanet import collate_fn, build_retinanet_model
+from retinanet_parameters import TrainingParameters
+from trainer import train_model
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -42,7 +43,7 @@ def extract_zipfile(path_input_zip: str, directory_to_extract_to: str) -> None:
 
 
 def download_annotations(dataset_version: picsellia.DatasetVersion, annotation_folder_path: str):
-    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "./")
+    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "../../src/")
     extract_zipfile(path_input_zip=zip_file, directory_to_extract_to=annotation_folder_path)
     shutil.rmtree(os.path.dirname(os.path.dirname(zip_file)))
 
@@ -60,7 +61,7 @@ def get_alias(dataset_version_name: str) -> str:
 
     raise ValueError('Unknown dataset')
 
-def download_datasets(dataset_versions: list[picsellia.DatasetVersion], root_folder: str = 'dataset'):
+def download_datasets(dataset_versions: typing.List[picsellia.DatasetVersion], root_folder: str = 'dataset'):
     '''
         .
     ├── train/
@@ -157,8 +158,8 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
     return train_data_loader, val_data_loader, train_dataset, val_dataset
 
 
-def get_class_mapping_from_picsellia(dataset_versions: list[DatasetVersion], single_cls: bool = False) -> dict[
-    int, str]:
+def get_class_mapping_from_picsellia(dataset_versions: typing.List[DatasetVersion], single_cls: bool = False) -> \
+    typing.Dict[int, str]:
     labels = ['bckg']
 
     if not single_cls:
@@ -194,7 +195,7 @@ def flatten_dictionary(dictionary, parent_key='', separator='_'):
 
 
 if __name__ == "__main__":
-    use_picsellia_training: bool = False
+    use_picsellia_training: bool = True
 
     # Define input/output folders
     dataset_root_folder: str = os.path.join(os.path.dirname(os.getcwd()), 'datasets')
@@ -204,7 +205,7 @@ if __name__ == "__main__":
     if use_picsellia_training:
         api_token = os.environ["api_token"]
         organization_id = os.environ["organization_id"]
-        job_id = os.environ["job_id"]
+        # job_id = os.environ["job_id"]
 
         client = Client(api_token=api_token, organization_id=organization_id)
         experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
@@ -215,7 +216,7 @@ if __name__ == "__main__":
         organization_name = os.getenv('ORGANIZATION_NAME')
         client = Client(api_token, organization_name=organization_name)
 
-        experiment = client.get_experiment_by_id(id='0194a70c-c596-7e1a-af33-7e6f8bbeb4b5')
+        experiment = client.get_experiment_by_id(id='0194ac33-af28-742e-8f30-d51ea06c29fd')
 
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -223,7 +224,8 @@ if __name__ == "__main__":
 
     # Download datasets
     datasets = experiment.list_attached_dataset_versions()
-    # download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
+    if not os.path.exists(dataset_root_folder):
+        download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
 
     base_model = experiment.get_base_model_version()
 
@@ -266,7 +268,10 @@ if __name__ == "__main__":
                                   iou_threshold=training_parameters.iou_threshold,
                                   unfrozen_layers=training_parameters.unfreeze,
                                   mean_values=training_parameters.augmentations.normalization.mean,
-                                  std_values=training_parameters.augmentations.normalization.std
+                                  std_values=training_parameters.augmentations.normalization.std,
+                                  anchor_boxes_params=training_parameters.anchor_boxes,
+                                  fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                  bg_iou_thresh=training_parameters.bg_iou_thresh
                                   )
     model.to(device)
 
@@ -329,5 +334,5 @@ if __name__ == "__main__":
                                   experiment=experiment,
                                   dataset_version_name='test',
                                   device=device,
-                                  batch_size=1)
+                                  batch_size=evaluation_batch_size)
 

@@ -1,3 +1,5 @@
+import logging
+
 import imutils
 import imutils.paths
 import numpy
@@ -33,11 +35,6 @@ class PascalVOCDataset(Dataset):
 
         self.data_folder = data_folder
 
-        # Read data files
-        # with open(os.path.join(data_folder, self.split + '_images.json'), 'r') as j:
-        #     self.images = json.load(j)
-        # with open(os.path.join(data_folder, self.split + '_objects.json'), 'r') as j:
-        #     self.annotation_files = json.load(j)
         self.images = list(imutils.paths.list_images(os.path.join(self.data_folder, 'JPEGImages')))
 
         annotation_folder = os.path.join(self.data_folder, 'Annotations')
@@ -50,7 +47,7 @@ class PascalVOCDataset(Dataset):
         self.transform = transform
 
     def get_class_mapping(self):
-        print(f'Compute class mapping for {self.split} dataset')
+        logging.info(f'Compute class mapping for {self.split} dataset')
 
         list_classes = []
         dict_classes = {}

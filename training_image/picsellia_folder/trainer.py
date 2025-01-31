@@ -6,8 +6,34 @@ from matplotlib import pyplot as plt
 from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
 
-from src.evaluator import plot_precision_recall_curve
-from src.utils import EarlyStopper, Averager, apply_loss_weights
+from evaluator import plot_precision_recall_curve
+from utils import EarlyStopper, Averager, apply_loss_weights
+
+
+def evaluate_one_epoch(model, val_data_loader, device, metric):
+    model.eval()
+
+    for images, targets in val_data_loader:
+        images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        with torch.no_grad():
+            predictions = model(images)
+
+        # processed_predictions = apply_postprocess_on_predictions(
+        #     predictions=predictions,
+        #     iou_threshold=MIN_IOU_THRESHOLD,
+        #     confidence_threshold=MIN_CONFIDENCE)
+
+        # send targets to GPU
+        targets_gpu = []
+        for j in range(len(targets)):
+            targets_gpu.append({k: v.to(device=device, non_blocking=True) for k, v in targets[j].items()})
+
+        metric.update(predictions, targets_gpu)
+
+    return metric.compute()
+
 
 
 def train_model(model, optimizer, train_data_loader, val_data_loader, lr_scheduler, lr_warmup, nb_epochs,
@@ -45,6 +71,8 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
 
             for images, targets in t_epoch:
                 t_epoch.set_description(f"Epoch {epoch}")
+                optimizer.zero_grad()
+
 
                 images = list(image.type(torch.FloatTensor).to(device) for image in images)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -66,7 +94,6 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     "total": total_loss_value
                 })  # Average out the loss
 
-                optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
 
@@ -102,29 +129,7 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                 lr_scheduler.step()
 
         # Evaluation
-
-        model.eval()
-
-        for images, targets in val_data_loader:
-            images = list(image.to(device) for image in images)
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-            with torch.no_grad():
-                predictions = model(images)
-
-            # processed_predictions = apply_postprocess_on_predictions(
-            #     predictions=predictions,
-            #     iou_threshold=MIN_IOU_THRESHOLD,
-            #     confidence_threshold=MIN_CONFIDENCE)
-
-            # send targets to GPU
-            targets_gpu = []
-            for j in range(len(targets)):
-                targets_gpu.append({k: v.to(device=device, non_blocking=True) for k, v in targets[j].items()})
-
-            metric.update(predictions, targets_gpu)
-
-        validation_metrics = metric.compute()
+        validation_metrics = evaluate_one_epoch(model, val_data_loader, device, metric)
 
         # TODO display precision / recall in Picsellia interface
         '''
@@ -137,12 +142,12 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
         '''
 
         logging.info(f"Epoch #{epoch + 1} Training loss: {loss_training_hist.value} "
-              f"Validation loss {loss_validation_hist.value}"
-              f"- Accuracies: 'mAP' {float(validation_metrics['map']):.3} / "
-              f"'mAP[50]': {float(validation_metrics['map_50']):.3} / "
-              f"'mAP[75]': {float(validation_metrics['map_75']):.3} /"
-              f"'Precision': {float(validation_metrics['precision'][0][25][0][0][-1]):.3} / "
-              f"'Recall': {float(validation_metrics['recall'][0][0][0][-1]):.3} ")
+                     f"Validation loss {loss_validation_hist.value}"
+                     f"- Accuracies: 'mAP' {float(validation_metrics['map']):.3} / "
+                     f"'mAP[50]': {float(validation_metrics['map_50']):.3} / "
+                     f"'mAP[75]': {float(validation_metrics['map_75']):.3} /"
+                     f"'Precision': {float(validation_metrics['precision'][0][25][0][0][-1]):.3} / "
+                     f"'Recall': {float(validation_metrics['recall'][0][0][0][-1]):.3} ")
         if validation_metrics['map'] >= best_map:
             best_map = float(validation_metrics['map'])
             torch.save(model.state_dict(), os.path.join(path_saved_models, 'best.pth'))

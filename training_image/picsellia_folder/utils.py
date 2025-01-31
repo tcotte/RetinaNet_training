@@ -36,7 +36,15 @@ class UnNormalize(object):
         return tensor
 
 
-class Averager:  ##Return the average loss
+class Averager:
+    """
+    Computes and stores the average object detection losses. Object detection losses are: *regression* for bounding box
+    regression and classification for object identification. Total is the sum of all losses with coefficients applied
+    for each loss type: total = aplha*regression + beta*classification.
+
+    The aim of this class is to sum all losses in each batch of an epoch and be able to compute the average of all
+    losses at the end of the epoch.
+    """
     def __init__(self):
         self.current_losses = {
             "regression": 0.0,
@@ -45,13 +53,23 @@ class Averager:  ##Return the average loss
         }
         self.iterations = 0.0
 
-    def send(self, new_losses: dict):
+    def send(self, new_losses: typing.Dict) -> None:
+        """
+        Increment the iteration attribute and store losses for each loss type: each loss type is summed over all
+        iterations.
+        :param new_losses: dictionary with all losses types as keys and loss values as values.
+                            {"regression":0.2, "classification":0.2, "total":0.2}
+        """
         for key, value in self.current_losses.items():
             self.current_losses[key] = new_losses[key] + value
         self.iterations += 1
 
     @property
-    def value(self):
+    def value(self) -> typing.Dict:
+        """
+        Get values of current losses.
+        :return: dictionary with all losses types as keys and current summed values as values.
+        """
         if self.iterations == 0:
             return {
                 "regression": 0.0,
@@ -65,7 +83,10 @@ class Averager:  ##Return the average loss
 
             return dict_to_return
 
-    def reset(self):
+    def reset(self) -> None:
+        """
+        Reset losses values and iteration attribute. This function has to be called at the end of each epoch.
+        """
         self.current_losses = {
             "regression": 0.0,
             "classification": 0.0,
@@ -74,14 +95,14 @@ class Averager:  ##Return the average loss
         self.iterations = 0.0
 
 
-def filter_predictions_by_confidence_threshold(predictions: dict, confidence_threshold: float):
+def filter_predictions_by_confidence_threshold(predictions: typing.Dict, confidence_threshold: float):
     filter_by_confidence = predictions['scores'] > confidence_threshold
     for k, v in predictions.items():
         predictions[k] = predictions[k][filter_by_confidence]
     return predictions
 
 
-def apply_nms_on_predictions(predictions: dict, iou_threshold: float):
+def apply_nms_on_predictions(predictions: typing.Dict, iou_threshold: float):
     kept_bboxes = nms(boxes=predictions['boxes'], scores=predictions['scores'], iou_threshold=iou_threshold)
 
     for k, v in predictions.items():
@@ -91,7 +112,8 @@ def apply_nms_on_predictions(predictions: dict, iou_threshold: float):
     return predictions
 
 
-def apply_postprocess_on_predictions(predictions: list[dict], iou_threshold: float, confidence_threshold: float):
+def apply_postprocess_on_predictions(predictions: typing.List[typing.Dict], iou_threshold: float,
+                                     confidence_threshold: float):
     post_processed_predictions = []
     for one_picture_prediction in predictions:
         one_picture_prediction = filter_predictions_by_confidence_threshold(predictions=one_picture_prediction,
@@ -104,12 +126,24 @@ def apply_postprocess_on_predictions(predictions: list[dict], iou_threshold: flo
 
 class EarlyStopper:
     def __init__(self, patience: int = 1, min_delta: int = 0):
+        """
+        The aim of this class is to terminate the training earlier than expected if the model is not improving by a
+        certain number of epochs.
+        :param patience: number of epochs to wait before stopping if the model does not improve.
+        :param min_delta: accepted delta between the current validation loss and the EPOCH-1 validation loss.
+        """
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
         self.min_validation_loss = float('inf')
 
-    def early_stop(self, validation_loss):
+    def early_stop(self, validation_loss: float) -> bool:
+        """
+        Function called when validation loss is computed to compare the current validation loss and the EPOCH-1
+        validation loss. If the validation loss is not improve during *patience* epochs, the training is stopped.
+        :param validation_loss: current validation loss value.
+        :return: boolean which indicates if we have to stop the training or not.
+        """
         if validation_loss < self.min_validation_loss:
             self.min_validation_loss = validation_loss
             self.counter = 0
@@ -120,13 +154,26 @@ class EarlyStopper:
         return False
 
 
-def apply_loss_weights(loss_dict: dict, loss_coefficients: dict) -> dict:
+def apply_loss_weights(loss_dict: typing.Dict, loss_coefficients: typing.Dict) -> typing.Dict:
+    """
+    Apply coefficient on losses. Considering loss dict keys as 'regression' / 'classification' and loss coefficients as
+    alpha / beta -> aplha*regression / beta*classification.
+    :param loss_dict: loss dictionary with keys as loss types and values as loss values for each type of loss.
+    :param loss_coefficients: coefficient applied for each loss type. Dictionary with keys as loss types and values as
+    coefficients for each type of loss.
+    :return: dictionary with keys as loss types and values as weighted loss values.
+    """
     for k in loss_dict.keys():
         loss_dict[k] *= loss_coefficients[k]
     return loss_dict
 
 
-def read_configuration_file(config_file: str) -> typing.Union[dict, None]:
+def read_configuration_file(config_file: str) -> typing.Union[typing.Dict, None]:
+    """
+    Read configuration yaml file.
+    :param config_file: path of the configuration file.
+    :return: dictionary which sums up information in the configuration file.
+    """
     with open(config_file) as stream:
         try:
             configs = yaml.safe_load(stream)
@@ -137,6 +184,11 @@ def read_configuration_file(config_file: str) -> typing.Union[dict, None]:
 
 
 def get_GPU_occupancy(gpu_id: int = 0) -> float:
+    """
+    Get memory occupancy of the used GPU for training.
+    :param gpu_id: id of the GPU used for training model.
+    :return: Memory occupancy in percentage.
+    """
     if torch.cuda.is_available():
         free_memory, total_memory = torch.cuda.mem_get_info(device=gpu_id)
         return 1 - free_memory / total_memory

@@ -2,13 +2,12 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Union
+from typing import Union, Dict
 
 from dotenv import load_dotenv
 from picsellia import Client, Experiment
-from picsellia.types.enums import LogType, JobStatus, ExperimentStatus
-
-from src.utils import get_GPU_occupancy
+from picsellia.types.enums import LogType, ExperimentStatus
+from utils import get_GPU_occupancy
 
 
 class PicselliaLogger:
@@ -40,7 +39,8 @@ class PicselliaLogger:
     def get_project_id_from_experiment(self) -> uuid.UUID:
         for project in self._client.list_projects():
             for experiment in project.list_experiments():
-                if str(experiment.id) == os.getenv('EXPERIMENT_ID'):
+                if (str(experiment.id) == os.getenv('EXPERIMENT_ID') or
+                        str(experiment.id) == os.environ["experiment_id"]):
                     return project.id
 
     def connect_to_picsellia_platform(self):
@@ -64,7 +64,7 @@ class PicselliaLogger:
             self.create_experiment(run_name=None)
             return self._experiment
 
-    def log_split_table(self, annotations_in_split: dict, title: str):
+    def log_split_table(self, annotations_in_split: Dict, title: str):
         data = {'x': [], 'y': []}
         for key, value in annotations_in_split.items():
             data['x'].append(key)
@@ -83,7 +83,7 @@ class PicselliaLogger:
     #     if self._config_file is not None:
     #         self._picsellia_experiment.store('config', self._config_file)
 
-    def on_epoch_end(self, training_losses: dict, accuracies: dict, current_lr: float,
+    def on_epoch_end(self, training_losses: Dict, accuracies: Dict, current_lr: float,
                      display_gpu_occupancy: bool = True, validation_losses=None) -> None:
         if validation_losses is None:
             validation_losses = {}

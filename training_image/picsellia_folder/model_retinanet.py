@@ -4,6 +4,7 @@ from typing import Union, Tuple
 import torch
 import torchvision
 from torchvision.models.detection import RetinaNet_ResNet50_FPN_V2_Weights
+from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.retinanet import RetinaNetClassificationHead
 
@@ -17,7 +18,10 @@ def build_retinanet_model(
         mean_values: Union[Tuple[float, float, float], None] = None,
         std_values: Union[Tuple[float, float, float], None] = None,
         unfrozen_layers: int = 3,
-        trained_weights: Union[str, None] = None
+        trained_weights: Union[str, None] = None,
+        anchor_boxes_params: Union[dict, None] = None,
+        fg_iou_thresh: float = 0.5,
+        bg_iou_thresh: float = 0.4
 ):
     if trained_weights is None:
         if use_COCO_pretrained_weights:
@@ -35,8 +39,13 @@ def build_retinanet_model(
         score_thresh=score_threshold,
         nms_thresh=iou_threshold,
         detections_per_img=max_det,
-        trainable_backbone_layers=unfrozen_layers
+        trainable_backbone_layers=unfrozen_layers,
+        fg_iou_thresh=fg_iou_thresh,
+        bg_iou_thresh=bg_iou_thresh
     )
+
+    if anchor_boxes_params is not None:
+        model.anchor_generator = AnchorGenerator(**anchor_boxes_params.dict())
 
     num_anchors = model.head.classification_head.num_anchors
     model.head.classification_head = RetinaNetClassificationHead(
