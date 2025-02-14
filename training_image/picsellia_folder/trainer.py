@@ -35,7 +35,6 @@ def evaluate_one_epoch(model, val_data_loader, device, metric):
     return metric.compute()
 
 
-
 def train_model(model, optimizer, train_data_loader, val_data_loader, lr_scheduler, lr_warmup, nb_epochs,
                 path_saved_models: str, loss_coefficients: dict, patience: int, device, callback):
     def _on_end_training():
@@ -72,7 +71,6 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
             for images, targets in t_epoch:
                 t_epoch.set_description(f"Epoch {epoch}")
                 optimizer.zero_grad()
-
 
                 images = list(image.type(torch.FloatTensor).to(device) for image in images)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]

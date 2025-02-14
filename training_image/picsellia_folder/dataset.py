@@ -1,5 +1,6 @@
 import logging
 
+import cv2
 import imutils
 import imutils.paths
 import numpy
@@ -198,10 +199,21 @@ class PascalVOCTestDataset(Dataset):
         return len(self.images)
 
 
-# if __name__ == '__main__':
-#     DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\yolov8_keras\dataset\test'
-#     IMAGE_SIZE = (1024, 1024)
-#     SINGLE_CLS = True
+if __name__ == '__main__':
+    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\yolov8_keras\dataset\test'
+    IMAGE_SIZE = (1024, 1024)
+    SINGLE_CLS = True
+
+    train_transform =  A.Compose([
+        A.RandomCrop(*IMAGE_SIZE),
+        A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
+        A.HueSaturationValue(p=0.1),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomBrightnessContrast(p=0.2),
+        ToTensorV2()
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+
 #
 #     train_transform = A.Compose([
 #         # A.Normalize(mean=[0.9629258011853685, 1.1043921727662964, 0.9835339608076883],
@@ -235,14 +247,14 @@ class PascalVOCTestDataset(Dataset):
 #         ToTensorV2()
 #     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 #
-#     val_dataset = PascalVOCDataset(
-#         data_folder=DATA_VALIDATION_DIR,
-#         split='test',
-#         single_cls=SINGLE_CLS,
-#         transform=train_transform)
-#
-#     # for i in val_dataset[:8]:
-#     # print(val_dataset[0][0])
-#     for i in range(10):
-#         plt.imshow(torch.permute(val_dataset[i][0], (2, 1, 0)).numpy())
-#         plt.show()
+    val_dataset = PascalVOCDataset(
+        data_folder=DATA_VALIDATION_DIR,
+        split='test',
+        single_cls=SINGLE_CLS,
+        transform=train_transform)
+
+    # for i in val_dataset[:8]:
+    # print(val_dataset[0][0])
+    for i in range(10):
+        plt.imshow(torch.permute(val_dataset[i][0], (2, 1, 0)).numpy())
+        plt.show()

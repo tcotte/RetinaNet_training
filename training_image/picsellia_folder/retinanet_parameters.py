@@ -1,32 +1,18 @@
 import os
+from enum import Enum
 from typing import Union, Optional, Tuple, List, Any
 
 from pydantic import BaseModel, field_validator
 
 
-# def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
-#     if isinstance(value, str):
-#         return bool(value.lower())
-#
-#     return value
-#
-#
-# def _transform_int_to_tuple(value: Union[int, tuple[int, int]]) -> tuple[int, int]:
-#     if isinstance(value, int):
-#         return value, value
-#
-#     return value
+class BackboneType(Enum):
+    ResnetNet = 'ResnetNet'
+    ScaleNet = 'ScaleNet'
 
 
-# BooleanFromString = Annotated[
-#     bool,
-#     BeforeValidator(_transform_str_to_bool),
-# ]
-#
-# TupleFromInt = Annotated[
-#     tuple[int, int],
-#     BeforeValidator(_transform_int_to_tuple),
-# ]
+class FPNExtraBlocks(Enum):
+    LastLevelMaxPool = 'LastLevelMaxPool'
+    LastLevelP6P7 = 'LastLevelP6P7'
 
 
 class LRWarmupParameters(BaseModel):
@@ -68,11 +54,24 @@ class AnchorBoxesParameters(BaseModel):
         tuple[float, float, float], tuple[float, float, float], tuple[float, float, float], tuple[float, float, float],
         tuple[float, float, float]]] = None
 
-
     @field_validator("sizes", "aspect_ratios", mode="before")
     def _transform_str_to_tuple(value: Union[str, tuple]) -> tuple:
         if isinstance(value, str):
             return eval(value)
+
+        return value
+
+
+class BackboneParameters(BaseModel):
+    backbone_type: BackboneType = BackboneType.ResnetNet
+    backbone_layers_nb: int = 50
+    add_P2_to_FPN: bool = False
+    extra_blocks_FPN: FPNExtraBlocks = FPNExtraBlocks.LastLevelP6P7
+
+    @field_validator('add_P2_to_FPN', mode='before')
+    def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
+        if isinstance(value, str):
+            return bool(value.lower())
 
         return value
 
@@ -99,6 +98,7 @@ class TrainingParameters(BaseModel):
     anchor_boxes: Optional[AnchorBoxesParameters] = None
     fg_iou_thresh: float = 0.5
     bg_iou_thresh: float = 0.4
+    backbone: BackboneParameters = BackboneParameters()
 
     # def transform_id_to_str(cls, value) -> str:
     #     return str(value)
@@ -126,6 +126,7 @@ if __name__ == '__main__':
            'coco_pretrained_weights': 'true',
            # 'image_size': 2,
            'loss': {'bbox_regression': 0.7, 'classification': 0.3},
+           'backbone': {'backbone_type': 'ScaleNet'}
            # 'anchor_boxes': {
            #     'sizes': ((32, 40, 50),
            #               (64, 80, 101),
@@ -141,6 +142,7 @@ if __name__ == '__main__':
            }
 
     )
-    print(training_parameters.single_class)
+
     print(training_parameters.image_size)
     print(training_parameters.anchor_boxes)
+    print(training_parameters.backbone.backbone_type)

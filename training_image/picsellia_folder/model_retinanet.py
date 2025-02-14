@@ -1,12 +1,21 @@
+import os
+from enum import Enum
 from functools import partial
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import torch
 import torchvision
+from torch import nn
 from torchvision.models.detection import RetinaNet_ResNet50_FPN_V2_Weights
 from torchvision.models.detection.anchor_utils import AnchorGenerator
+from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.retinanet import RetinaNetClassificationHead
+from torchvision.models.detection.retinanet import RetinaNetClassificationHead, _default_anchorgen, RetinaNetHead, \
+    RetinaNet
+from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
+
+from ScaleNet.pytorch import scalenet
+from training_image.picsellia_folder.retinanet_parameters import BackboneType, FPNExtraBlocks
 
 
 def build_retinanet_model(
@@ -61,16 +70,99 @@ def build_retinanet_model(
     return model
 
 
-def create_faster_rcnn_model(num_classes=91):
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False, pretrained_backbone=False)
-    num_classes = 2  # 1 class (wheat) + background
+def build_model(
+        score_threshold: float,
+        iou_threshold: float,
+        max_det: int = 300,
+        num_classes: int = 91,
+        mean_values: Union[Tuple[float, float, float], None] = None,
+        std_values: Union[Tuple[float, float, float], None] = None,
+        unfrozen_layers: int = 3,
+        trained_weights: Union[str, None] = None,
+        anchor_boxes_params: Union[dict, None] = None,
+        fg_iou_thresh: float = 0.5,
+        bg_iou_thresh: float = 0.4,
+        backbone_type: BackboneType = BackboneType.ResnetNet,
+        backbone_layers_nb: int = 50,
+        add_P2_to_FPN: bool = False,
+        extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> RetinaNet:
 
-    # get number of input features for the classifier
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    backbone = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
+                              extra_blocks=extra_blocks_FPN)
 
-    # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    if anchor_boxes_params is not None:
+        anchor_generator = AnchorGenerator(**anchor_boxes_params.dict())
+
+    else:
+        anchor_generator = _default_anchorgen()
+
+    head = RetinaNetHead(
+        backbone.out_channels,
+        anchor_generator.num_anchors_per_location()[0],
+        num_classes,
+        norm_layer=partial(nn.GroupNorm, 32),
+    )
+    head.regression_head._loss_type = "giou"
+    model = RetinaNet(backbone,
+                      num_classes,
+                      anchor_generator=anchor_generator,
+                      head=head,
+                      image_mean=mean_values,
+                      image_std=std_values,
+                      score_thresh=score_threshold,
+                      nms_thresh=iou_threshold,
+                      detections_per_img=max_det,
+                      trainable_backbone_layers=unfrozen_layers,
+                      fg_iou_thresh=fg_iou_thresh,
+                      bg_iou_thresh=bg_iou_thresh)
+
+    if trained_weights is not None:
+        model.load_state_dict(torch.load(trained_weights, weights_only=True))
+
     return model
+
+
+def build_scalenet_model(size: int, structures_path: str) -> nn.Module:
+    resNet_sizes = [50, 102, 152]
+    if size in resNet_sizes:
+        kwargs = {
+            'structure_path': os.path.join(structures_path, f'scalenet{size}.json'),
+        }
+        return getattr(scalenet, f"scalenet{size}")(**kwargs)
+
+    else:
+        raise ValueError(f"ScaleNet model size {size} is not supported")
+
+
+def build_resnet_model(size: int, pretrained: bool = False) -> nn.Module:
+    resNet_sizes = [18, 34, 50, 101, 152]
+    if size in resNet_sizes:
+        return getattr(torchvision.models, f'resnet{size}')(pretrained=pretrained)
+
+    else:
+        raise ValueError(f"ResNet model size {size} is not supported")
+
+
+def build_backbone(backbone_type: BackboneType, size: int = 50, add_P2_to_FPN: bool = False,
+                   extra_blocks: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> _resnet_fpn_extractor:
+    if backbone_type == BackboneType.ScaleNet:
+        backbone = build_scalenet_model(size=size, structures_path='ScaleNet/structures')
+
+    else:
+        backbone = build_resnet_model(size=size)
+
+    is_trained = False
+    trainable_backbone_layers = None
+    trainable_backbone_layers = _validate_trainable_layers(is_trained, trainable_backbone_layers, 5, 3)
+
+    if add_P2_to_FPN:
+        returned_layers = [2, 3, 4]
+    else:
+        returned_layers = [1, 2, 3, 4]
+
+    return _resnet_fpn_extractor(
+        backbone, trainable_backbone_layers, returned_layers=returned_layers, extra_blocks=extra_blocks
+    )
 
 
 def collate_fn(batch):

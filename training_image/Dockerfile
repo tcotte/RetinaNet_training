@@ -21,4 +21,9 @@ WORKDIR /picsellia_folder
 
 COPY training_image/picsellia_folder .
 
+RUN mkdir -p /saved_models && chmod 777 /saved_models
+RUN mkdir -p /datasets && chmod 777 /datasets
+RUN mkdir -p /run && chmod 777 /run
+RUN chmod 777 ./
+
 ENTRYPOINT ["python", "main.py"]

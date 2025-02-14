@@ -5,6 +5,7 @@ import typing
 import zipfile
 from typing import Union
 
+import cv2
 import torch
 import yaml
 import albumentations as A
@@ -22,7 +23,7 @@ from collections.abc import MutableMapping
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
 from picsellia_logger import PicselliaLogger
-from model_retinanet import collate_fn, build_retinanet_model
+from model_retinanet import collate_fn, build_retinanet_model, build_model
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
 
@@ -43,9 +44,10 @@ def extract_zipfile(path_input_zip: str, directory_to_extract_to: str) -> None:
 
 
 def download_annotations(dataset_version: picsellia.DatasetVersion, annotation_folder_path: str):
-    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "../../src/")
+    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "./")
     extract_zipfile(path_input_zip=zip_file, directory_to_extract_to=annotation_folder_path)
     shutil.rmtree(os.path.dirname(os.path.dirname(zip_file)))
+    # os.remove(zip_file)
 
 
 def get_alias(dataset_version_name: str) -> str:
@@ -90,7 +92,7 @@ def download_datasets(dataset_versions: typing.List[picsellia.DatasetVersion], r
         os.makedirs(annotations_folder_path)
 
         assets = dataset.list_assets()
-        assets.download(images_folder_path, max_workers=os.cpu_count())
+        assets.download(images_folder_path, max_workers=8)
 
         download_annotations(dataset_version=dataset, annotation_folder_path=annotations_folder_path)
 
@@ -117,8 +119,10 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
     train_transform = A.Compose([
         A.RandomCrop(*image_size),
+        A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
         A.HueSaturationValue(p=0.1),
         A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.2),
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
@@ -224,8 +228,8 @@ if __name__ == "__main__":
 
     # Download datasets
     datasets = experiment.list_attached_dataset_versions()
-    if not os.path.exists(dataset_root_folder):
-        download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
+    # if not os.path.exists(dataset_root_folder):
+    download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
 
     base_model = experiment.get_base_model_version()
 
@@ -262,17 +266,35 @@ if __name__ == "__main__":
                                                      single_cls=training_parameters.single_class)
 
     # Build model
-    model = build_retinanet_model(num_classes=len(class_mapping),
-                                  use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
-                                  score_threshold=training_parameters.confidence_threshold,
-                                  iou_threshold=training_parameters.iou_threshold,
-                                  unfrozen_layers=training_parameters.unfreeze,
-                                  mean_values=training_parameters.augmentations.normalization.mean,
-                                  std_values=training_parameters.augmentations.normalization.std,
-                                  anchor_boxes_params=training_parameters.anchor_boxes,
-                                  fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                  bg_iou_thresh=training_parameters.bg_iou_thresh
-                                  )
+    if training_parameters.coco_pretrained_weights:
+        model = build_retinanet_model(num_classes=len(class_mapping),
+                                      use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
+                                      score_threshold=training_parameters.confidence_threshold,
+                                      iou_threshold=training_parameters.iou_threshold,
+                                      unfrozen_layers=training_parameters.unfreeze,
+                                      mean_values=training_parameters.augmentations.normalization.mean,
+                                      std_values=training_parameters.augmentations.normalization.std,
+                                      anchor_boxes_params=training_parameters.anchor_boxes,
+                                      fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                      bg_iou_thresh=training_parameters.bg_iou_thresh
+                                      )
+    else:
+        model = build_model(num_classes=len(class_mapping),
+                            score_threshold=training_parameters.confidence_threshold,
+                            iou_threshold=training_parameters.iou_threshold,
+                            unfrozen_layers=training_parameters.unfreeze,
+                            mean_values=training_parameters.augmentations.normalization.mean,
+                            std_values=training_parameters.augmentations.normalization.std,
+                            anchor_boxes_params=training_parameters.anchor_boxes,
+                            fg_iou_thresh=training_parameters.fg_iou_thresh,
+                            bg_iou_thresh=training_parameters.bg_iou_thresh,
+                            backbone_type = training_parameters.backbone.backbone_type,
+                            backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
+                            add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
+                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN
+                            )
+
+
     model.to(device)
 
     optimizer = get_optimizer(optimizer_name=training_parameters.optimizer,
