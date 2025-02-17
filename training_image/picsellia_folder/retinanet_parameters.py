@@ -6,7 +6,7 @@ from pydantic import BaseModel, field_validator
 
 
 class BackboneType(Enum):
-    ResnetNet = 'ResnetNet'
+    ResNet = 'ResNet'
     ScaleNet = 'ScaleNet'
 
 
@@ -63,7 +63,7 @@ class AnchorBoxesParameters(BaseModel):
 
 
 class BackboneParameters(BaseModel):
-    backbone_type: BackboneType = BackboneType.ResnetNet
+    backbone_type: BackboneType = BackboneType.ResNet
     backbone_layers_nb: int = 50
     add_P2_to_FPN: bool = False
     extra_blocks_FPN: FPNExtraBlocks = FPNExtraBlocks.LastLevelP6P7
