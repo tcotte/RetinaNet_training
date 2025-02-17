@@ -48,8 +48,8 @@ class AugmentationParameters(BaseModel):
 
 class AnchorBoxesParameters(BaseModel):
     sizes: Optional[tuple[
-        tuple[float, float, float], tuple[float, float, float], tuple[float, float, float], tuple[float, float, float],
-        tuple[float, float, float]]] = None
+        tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int],
+        tuple[int, int, int]]] = None
     aspect_ratios: Optional[tuple[
         tuple[float, float, float], tuple[float, float, float], tuple[float, float, float], tuple[float, float, float],
         tuple[float, float, float]]] = None
@@ -146,3 +146,8 @@ if __name__ == '__main__':
     print(training_parameters.image_size)
     print(training_parameters.anchor_boxes)
     print(training_parameters.backbone.backbone_type)
+    print(training_parameters.backbone.extra_blocks_FPN)
+    print("ok")
+
+    # torchvision.ops.feature_pyramid_network
+    # import ExtraFPNBlock

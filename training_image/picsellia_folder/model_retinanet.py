@@ -15,7 +15,7 @@ from torchvision.models.detection.retinanet import RetinaNetClassificationHead, 
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 from ScaleNet.pytorch import scalenet
-from training_image.picsellia_folder.retinanet_parameters import BackboneType, FPNExtraBlocks
+from retinanet_parameters import BackboneType, FPNExtraBlocks
 
 
 def build_retinanet_model(
@@ -160,8 +160,13 @@ def build_backbone(backbone_type: BackboneType, size: int = 50, add_P2_to_FPN: b
     else:
         returned_layers = [1, 2, 3, 4]
 
+    if extra_blocks is not None:
+        torchvision_extra_block = getattr(torchvision.ops.feature_pyramid_network, extra_blocks.value)
+    else:
+        torchvision_extra_block = None
+
     return _resnet_fpn_extractor(
-        backbone, trainable_backbone_layers, returned_layers=returned_layers, extra_blocks=extra_blocks
+        backbone, trainable_backbone_layers, returned_layers=returned_layers, extra_blocks=torchvision_extra_block
     )
 
 

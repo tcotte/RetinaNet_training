@@ -228,8 +228,11 @@ if __name__ == "__main__":
 
     # Download datasets
     datasets = experiment.list_attached_dataset_versions()
-    # if not os.path.exists(dataset_root_folder):
-    download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
+
+    if not os.path.exists(dataset_root_folder):
+        download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
+    else:
+        logging.warning(f'A dataset was previously imported before the training.')
 
     base_model = experiment.get_base_model_version()
 
