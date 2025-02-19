@@ -20,8 +20,8 @@ fg_iou_thresh: 0.4
 bg_iou_thresh: 0.3
 
 backbone:
-  backbone_type: ScaleNet
-  backbone_layers_nb: 152
+  backbone_type: ResNet
+  backbone_layers_nb: 50
   add_P2_to_FPN: True
   extra_blocks_FPN: LastLevelMaxPool
 
