@@ -53,7 +53,7 @@ def get_anchor_boxes_sizes_in_RetinaNet_format(scales: np.array, returned_layers
     return tuple(tuple(x) for x in list_sizes)
 
 
-def compute_anchor_boxes_sizes_from_KMeans(data_loader: DataLoader, add_P2_to_FPN: bool) -> AnchorGenerator:
+def compute_anchor_boxes_sizes_from_KMeans(data_loader: DataLoader, add_P2_to_FPN: bool) -> tuple:
     dataset_anchor_boxes_sizes = get_dataset_bboxes_sizes(dataloader=data_loader)
 
     returned_layers = [1, 2, 3, 4] if add_P2_to_FPN else [2, 3, 4]

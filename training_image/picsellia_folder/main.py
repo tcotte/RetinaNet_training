@@ -272,6 +272,7 @@ if __name__ == "__main__":
         anchor_sizes = compute_anchor_boxes_sizes_from_KMeans(data_loader=train_dataloader,
                                                               add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
         training_parameters.anchor_boxes.anchor_sizes = anchor_sizes
+        training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
 
     # Build model
     if training_parameters.coco_pretrained_weights:
