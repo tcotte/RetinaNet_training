@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from typing import Union, Optional, Tuple, List, Any
-
+from distutils.util import strtobool
 from pydantic import BaseModel, field_validator
 
 
@@ -53,6 +53,14 @@ class AnchorBoxesParameters(BaseModel):
     aspect_ratios: Optional[tuple[
         tuple[float, float, float], tuple[float, float, float], tuple[float, float, float], tuple[float, float, float],
         tuple[float, float, float]]] = None
+    auto_size: Optional[bool] = False
+
+    @field_validator("auto_size", mode='before')
+    def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
+        if isinstance(value, str):
+            return bool(strtobool(value))
+
+        return value
 
     @field_validator("sizes", "aspect_ratios", mode="before")
     def _transform_str_to_tuple(value: Union[str, tuple]) -> tuple:
@@ -71,7 +79,7 @@ class BackboneParameters(BaseModel):
     @field_validator('add_P2_to_FPN', mode='before')
     def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
         if isinstance(value, str):
-            return bool(value.lower())
+            return bool(strtobool(value))
 
         return value
 
@@ -106,7 +114,7 @@ class TrainingParameters(BaseModel):
     @field_validator("single_class", "coco_pretrained_weights", mode='before')
     def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
         if isinstance(value, str):
-            return bool(value.lower())
+            return bool(strtobool(value))
 
         return value
 
@@ -126,28 +134,28 @@ if __name__ == '__main__':
            'coco_pretrained_weights': 'true',
            # 'image_size': 2,
            'loss': {'bbox_regression': 0.7, 'classification': 0.3},
-           'backbone': {'backbone_type': 'ScaleNet'}
-           # 'anchor_boxes': {
-           #     'sizes': ((32, 40, 50),
-           #               (64, 80, 101),
-           #               (128, 161, 203),
-           #               (256, 322, 406),
-           #               (512, 645, 812)),
-           #     'aspect_ratios': ((0.5, 1.0, 2.0),
-           #                       (0.5, 1.0, 2.0),
-           #                       (0.5, 1.0, 2.0),
-           #                       (0.5, 1.0, 2.0),
-           #                       (0.5, 1.0, 2.0))
-           # },
+           'backbone': {'backbone_type': 'ScaleNet'},
+           'anchor_boxes': {
+               'sizes': ((32, 40, 50),
+                         (64, 80, 101),
+                         (128, 161, 203),
+                         (256, 322, 406),
+                         (512, 645, 812)),
+               'aspect_ratios': ((0.5, 1.0, 2.0),
+                                 (0.5, 1.0, 2.0),
+                                 (0.5, 1.0, 2.0),
+                                 (0.5, 1.0, 2.0),
+                                 (0.5, 1.0, 2.0)),
+               'auto_size': 'True'
+           },
            }
 
     )
 
     print(training_parameters.image_size)
     print(training_parameters.anchor_boxes)
-    print(training_parameters.backbone.backbone_type)
-    print(training_parameters.backbone.extra_blocks_FPN)
-    print("ok")
+
+
 
     # torchvision.ops.feature_pyramid_network
     # import ExtraFPNBlock

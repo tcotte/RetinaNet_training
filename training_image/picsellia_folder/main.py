@@ -17,7 +17,6 @@ from picsellia.types.enums import AnnotationFileType
 from pytorch_warmup import ExponentialWarmup
 from torch.utils.data import DataLoader
 
-
 from collections.abc import MutableMapping
 
 from dataset import PascalVOCDataset, PascalVOCTestDataset
@@ -26,6 +25,7 @@ from picsellia_logger import PicselliaLogger
 from model_retinanet import collate_fn, build_retinanet_model, build_model
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
+from anchor_box_optimization import compute_anchor_boxes_sizes_from_KMeans
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -267,6 +267,11 @@ if __name__ == "__main__":
 
     class_mapping = get_class_mapping_from_picsellia(dataset_versions=datasets,
                                                      single_cls=training_parameters.single_class)
+
+    if training_parameters.anchor_boxes.auto_size:
+        anchor_sizes = compute_anchor_boxes_sizes_from_KMeans(data_loader=train_dataloader,
+                                                              add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
+        training_parameters.anchor_boxes.anchor_sizes = anchor_sizes
 
     # Build model
     if training_parameters.coco_pretrained_weights:

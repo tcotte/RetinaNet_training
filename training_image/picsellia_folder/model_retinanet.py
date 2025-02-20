@@ -1,5 +1,4 @@
 import os
-from enum import Enum
 from functools import partial
 from typing import Union, Tuple, Optional
 
@@ -8,17 +7,12 @@ import torchvision
 from torch import nn
 from torchvision.models.detection import RetinaNet_ResNet50_FPN_V2_Weights
 from torchvision.models.detection.anchor_utils import AnchorGenerator
-from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
 from torchvision.models.detection.retinanet import RetinaNetClassificationHead, _default_anchorgen, RetinaNetHead, \
     RetinaNet
-from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 from ScaleNet.pytorch import scalenet
-from training_image.picsellia_folder.retinanet_parameters import FPNExtraBlocks, BackboneType
-
-
-# from retinanet_parameters import BackboneType, FPNExtraBlocks
+from retinanet_parameters import FPNExtraBlocks, BackboneType
 
 
 def build_retinanet_model(
@@ -144,6 +138,7 @@ def build_model(
     #     backbone, unfrozen_layers, returned_layers=[1, 2, 3, 4], extra_blocks=torchvision_extra_block
     # )
 
+
     backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
                                   extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3)
 
@@ -215,7 +210,7 @@ def build_backbone(backbone_type: BackboneType, size: int = 50, add_P2_to_FPN: b
     # trainable_backbone_layers = None
     # trainable_backbone_layers = _validate_trainable_layers(is_trained, trainable_backbone_layers, 5, 3)
 
-    if add_P2_to_FPN:
+    if not add_P2_to_FPN:
         returned_layers = [2, 3, 4]
     else:
         returned_layers = [1, 2, 3, 4]
