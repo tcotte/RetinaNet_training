@@ -11,6 +11,7 @@ augmentations:
   normalization:
     mean: [0.9629258011853685, 1.1043921727662964, 0.9835339608076883]
     std: [0.08148765554920795, 0.10545005065566, 0.13757230267160245]
+    auto_norm: True
 
 anchor_boxes:
   sizes: ((8, 13, 19), (28, 45, 61), (82, 104, 130), (168, 235, 339), (599, 781, 1146))
@@ -21,8 +22,8 @@ fg_iou_thresh: 0.4
 bg_iou_thresh: 0.3
 
 backbone:
-  backbone_type: ResNet
-  backbone_layers_nb: 50
+  backbone_type: ScaleNet
+  backbone_layers_nb: False
   add_P2_to_FPN: True
   extra_blocks_FPN: LastLevelMaxPool
 

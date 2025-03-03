@@ -25,7 +25,8 @@ from picsellia_logger import PicselliaLogger
 from model_retinanet import collate_fn, build_retinanet_model, build_model
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
-from anchor_box_optimization import compute_anchor_boxes_sizes_from_KMeans
+from anchor_box_optimization import compute_anchor_boxes_sizes_from_KMeans, AnchorBoxOptimizer
+from training_image.picsellia_folder.normalize_parameters import compute_auto_normalization_parameters
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -256,6 +257,12 @@ if __name__ == "__main__":
     if device.type == 'cuda':
         training_parameters.device_name = torch.cuda.get_device_name()
 
+    if training_parameters.augmentations.normalization.auto_norm:
+        normalization_parameters = compute_auto_normalization_parameters(image_folder=dataset_root_folder)
+        # overwrite normalization parameters
+        training_parameters.augmentations.normalization.mean = normalization_parameters['RGB mean']
+        training_parameters.augmentations.normalization.std = normalization_parameters['RGB std']
+
     # Create dataloaders
     train_dataloader, val_dataloader, train_dataset, val_dataset = create_dataloaders(
         image_size=training_parameters.image_size,
@@ -269,9 +276,11 @@ if __name__ == "__main__":
                                                      single_cls=training_parameters.single_class)
 
     if training_parameters.anchor_boxes.auto_size:
-        anchor_sizes = compute_anchor_boxes_sizes_from_KMeans(data_loader=train_dataloader,
-                                                              add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
+        anchor_boxes_optimizer = AnchorBoxOptimizer(dataloader=train_dataloader,
+                                                    add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
+        anchor_sizes = anchor_boxes_optimizer.get_anchor_boxes_sizes()
         training_parameters.anchor_boxes.anchor_sizes = anchor_sizes
+        # (0.5, 1.0, 2.0) is RetinaNet aspect_ratio by default
         training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
 
     # Build model

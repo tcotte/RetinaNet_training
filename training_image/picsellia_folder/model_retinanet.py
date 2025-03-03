@@ -83,67 +83,12 @@ def build_model(
         backbone_layers_nb: int = 50,
         add_P2_to_FPN: bool = False,
         extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> RetinaNet:
-    # if backbone_type == BackboneType.ScaleNet:
-    #     backbone = build_scalenet_model(structures_path='ScaleNet/structures',
-    #                                     size=backbone_layers_nb)
-    #
-    # else:
-    #     backbone = build_resnet_model(size=backbone_layers_nb)
-    #
-    # if add_P2_to_FPN:
-    #     returned_layers = [2, 3, 4]
-    # else:
-    #     returned_layers = [1, 2, 3, 4]
-    #
-    # torchvision_extra_block = None
-    # if extra_blocks_FPN is not None:
-    #     if isinstance(extra_blocks_FPN, FPNExtraBlocks):
-    #         if extra_blocks_FPN == FPNExtraBlocks.LastLevelMaxPool:
-    #             torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
-    #         elif extra_blocks_FPN == FPNExtraBlocks.LastLevelP6P7:
-    #             torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(2048, 256)
-    #
-    #         else:
-    #             raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks_FPN))
-    #
-    #
-    # backbone_fpn = _resnet_fpn_extractor(
-    #     backbone, unfrozen_layers, returned_layers=returned_layers, extra_blocks=LastLevelMaxPool()
-    # )
-
-    # backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
-    #                               extra_blocks=extra_blocks_FPN, trainable_backbone_layers=unfrozen_layers)
-
-    # backbone = build_scalenet_model(structures_path='ScaleNet/structures',
-    #                                 size=backbone_layers_nb)
-    # # )
-
-    # if add_P2_to_FPN:
-    #     conv_layers_connected_to_FPN = [2, 3, 4]
-    # else:
-    #     conv_layers_connected_to_FPN = [1, 2, 3, 4]
-    #
-    # torchvision_extra_block = None
-    # if extra_blocks_FPN is not None:
-    #     if isinstance(extra_blocks_FPN, FPNExtraBlocks):
-    #         if extra_blocks_FPN == FPNExtraBlocks.LastLevelMaxPool:
-    #             torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
-    #         elif extra_blocks_FPN == FPNExtraBlocks.LastLevelP6P7:
-    #             torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(2048, 256)
-    #
-    #         else:
-    #             raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks_FPN))
-    #
-    # backbone_fpn = _resnet_fpn_extractor(
-    #     backbone, unfrozen_layers, returned_layers=[1, 2, 3, 4], extra_blocks=torchvision_extra_block
-    # )
-
 
     backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
                                   extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3)
 
     if anchor_boxes_params is not None:
-        anchor_generator = AnchorGenerator(**anchor_boxes_params.dict())
+        anchor_generator = AnchorGenerator(**{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
 
     else:
         anchor_generator = _default_anchorgen()

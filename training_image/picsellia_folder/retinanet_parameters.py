@@ -39,6 +39,14 @@ class LossParameters(BaseModel):
 class NormalizationParameters(BaseModel):
     mean: List[float] = [0.485, 0.456, 0.406]
     std: List[float] = [0.229, 0.224, 0.225]
+    auto_norm: bool = False
+
+    @field_validator("auto_norm", mode='before')
+    def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
+        if isinstance(value, str):
+            return bool(strtobool(value))
+
+        return value
 
 
 #
@@ -153,6 +161,9 @@ if __name__ == '__main__':
     )
 
     print(training_parameters.image_size)
+    print(training_parameters.anchor_boxes)
+
+    training_parameters.anchor_boxes.sizes = ((8, 11, 15, 21), (30, 45, 67, 92), (124, 171, 227, 303), (388, 507, 558, 588), (709, 1005, 1298, 1982))
     print(training_parameters.anchor_boxes)
 
 
