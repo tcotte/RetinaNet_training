@@ -66,10 +66,10 @@ def compute_auto_normalization_parameters(image_folder: str, max_workers: Option
             d[c][values] /= max_pixel_value
 
             if values == 'mean':
-                list_rgb_mean.append(d[c][values])
+                list_rgb_mean.append(float(np.round(d[c][values], 4)))
 
             if values == 'std':
-                list_rgb_std.append(d[c][values])
+                list_rgb_std.append(float(np.round(d[c][values], 4)))
 
     logging.info(f'Computed normalization parameters: \nMax pixel value {max_pixel_value} \nRGB mean {list_rgb_mean} \n'
                  f'RGB std {list_rgb_std}')
@@ -81,6 +81,7 @@ def compute_auto_normalization_parameters(image_folder: str, max_workers: Option
     }
 
 
-# if __name__ == '__main__':
-#     image_folder = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\datasets\train'
-#     print(compute_auto_normalization_parameters(image_folder))
+if __name__ == '__main__':
+    image_folder = '../datasets/train'
+    norm_params = compute_auto_normalization_parameters(image_folder)
+    print(norm_params)

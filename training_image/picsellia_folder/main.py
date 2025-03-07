@@ -25,8 +25,8 @@ from picsellia_logger import PicselliaLogger
 from model_retinanet import collate_fn, build_retinanet_model, build_model
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
-from anchor_box_optimization import compute_anchor_boxes_sizes_from_KMeans, AnchorBoxOptimizer
-from training_image.picsellia_folder.normalize_parameters import compute_auto_normalization_parameters
+from anchor_box_optimization import AnchorBoxOptimizer
+from normalize_parameters import compute_auto_normalization_parameters
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -116,10 +116,12 @@ def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
             return None
 
 
-def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str) -> \
+def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str,
+                       random_crop: bool = False) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
+
     train_transform = A.Compose([
-        A.RandomCrop(*image_size),
+        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
         A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
         A.HueSaturationValue(p=0.1),
         A.HorizontalFlip(p=0.5),
@@ -129,7 +131,7 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
     valid_transform = A.Compose([
-        A.RandomCrop(*image_size),
+        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
@@ -200,7 +202,7 @@ def flatten_dictionary(dictionary, parent_key='', separator='_'):
 
 
 if __name__ == "__main__":
-    use_picsellia_training: bool = True
+    use_picsellia_training: bool = False
 
     # Define input/output folders
     dataset_root_folder: str = os.path.join(os.path.dirname(os.getcwd()), 'datasets')
@@ -216,7 +218,7 @@ if __name__ == "__main__":
         experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
 
     else:
-        load_dotenv('../.env')
+        load_dotenv('../../.env')
         api_token = os.getenv('PICSELLIA_TOKEN')
         organization_name = os.getenv('ORGANIZATION_NAME')
         client = Client(api_token, organization_name=organization_name)
@@ -269,7 +271,8 @@ if __name__ == "__main__":
         single_cls=training_parameters.single_class,
         num_workers=training_parameters.workers_number,
         batch_size=training_parameters.batch_size,
-        path_root=dataset_root_folder
+        path_root=dataset_root_folder,
+        random_crop=training_parameters.augmentations.crop
     )
 
     class_mapping = get_class_mapping_from_picsellia(dataset_versions=datasets,
@@ -279,7 +282,7 @@ if __name__ == "__main__":
         anchor_boxes_optimizer = AnchorBoxOptimizer(dataloader=train_dataloader,
                                                     add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
         anchor_sizes = anchor_boxes_optimizer.get_anchor_boxes_sizes()
-        training_parameters.anchor_boxes.anchor_sizes = anchor_sizes
+        training_parameters.anchor_boxes.sizes = anchor_sizes
         # (0.5, 1.0, 2.0) is RetinaNet aspect_ratio by default
         training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
 

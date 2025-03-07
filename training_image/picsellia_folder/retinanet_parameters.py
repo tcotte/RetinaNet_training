@@ -51,7 +51,15 @@ class NormalizationParameters(BaseModel):
 
 #
 class AugmentationParameters(BaseModel):
+    crop: bool = False
     normalization: NormalizationParameters = NormalizationParameters()
+
+    @field_validator("crop", mode='before')
+    def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
+        if isinstance(value, str):
+            return bool(strtobool(value))
+
+        return value
 
 
 class AnchorBoxesParameters(BaseModel):
