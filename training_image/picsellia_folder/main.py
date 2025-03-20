@@ -202,6 +202,8 @@ def flatten_dictionary(dictionary, parent_key='', separator='_'):
 
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
+
     # Define input/output folders
     dataset_root_folder: str = os.path.join(os.path.dirname(os.getcwd()), 'datasets')
     path_saved_models: str = os.path.join(os.path.dirname(os.getcwd()), 'saved_models')
