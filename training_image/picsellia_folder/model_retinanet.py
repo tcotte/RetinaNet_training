@@ -101,6 +101,8 @@ def build_model(
     )
     head.regression_head._loss_type = "giou"
 
+
+
     model = RetinaNet(backbone=backbone_fpn,
                       num_classes=num_classes,
                       anchor_generator=anchor_generator,
@@ -114,6 +116,14 @@ def build_model(
                       fg_iou_thresh=fg_iou_thresh,
                       bg_iou_thresh=bg_iou_thresh
                       )
+
+    num_anchors = model.head.classification_head.num_anchors
+    model.head.classification_head = RetinaNetClassificationHead(
+        in_channels=256,
+        num_anchors=num_anchors,
+        num_classes=num_classes,
+        norm_layer=partial(torch.nn.GroupNorm, 32)
+    )
 
     if trained_weights is not None:
         model.load_state_dict(torch.load(trained_weights, weights_only=True))

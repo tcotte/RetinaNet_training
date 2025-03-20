@@ -151,6 +151,7 @@ if __name__ == '__main__':
            # 'image_size': 2,
            'loss': {'bbox_regression': 0.7, 'classification': 0.3},
            'backbone': {'backbone_type': 'ScaleNet'},
+           'fg_iou_thresh': 0.1,
            'anchor_boxes': {
                'sizes': ((32, 40, 50),
                          (64, 80, 101),
@@ -173,6 +174,7 @@ if __name__ == '__main__':
 
     training_parameters.anchor_boxes.sizes = ((8, 11, 15, 21), (30, 45, 67, 92), (124, 171, 227, 303), (388, 507, 558, 588), (709, 1005, 1298, 1982))
     print(training_parameters.anchor_boxes)
+    print(training_parameters.fg_iou_thresh)
 
 
 

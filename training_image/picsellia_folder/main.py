@@ -64,6 +64,7 @@ def get_alias(dataset_version_name: str) -> str:
 
     raise ValueError('Unknown dataset')
 
+
 def download_datasets(dataset_versions: typing.List[picsellia.DatasetVersion], root_folder: str = 'dataset'):
     '''
         .
@@ -119,7 +120,6 @@ def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
 def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str,
                        random_crop: bool = False) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
-
     train_transform = A.Compose([
         A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
         A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
@@ -166,7 +166,7 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
 
 
 def get_class_mapping_from_picsellia(dataset_versions: typing.List[DatasetVersion], single_cls: bool = False) -> \
-    typing.Dict[int, str]:
+        typing.Dict[int, str]:
     labels = ['bckg']
 
     if not single_cls:
@@ -202,28 +202,17 @@ def flatten_dictionary(dictionary, parent_key='', separator='_'):
 
 
 if __name__ == "__main__":
-    use_picsellia_training: bool = False
-
     # Define input/output folders
     dataset_root_folder: str = os.path.join(os.path.dirname(os.getcwd()), 'datasets')
     path_saved_models: str = os.path.join(os.path.dirname(os.getcwd()), 'saved_models')
     os.makedirs(path_saved_models, exist_ok=True)
 
-    if use_picsellia_training:
-        api_token = os.environ["api_token"]
-        organization_id = os.environ["organization_id"]
-        # job_id = os.environ["job_id"]
-
-        client = Client(api_token=api_token, organization_id=organization_id)
-        experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
-
-    else:
-        load_dotenv('../../.env')
-        api_token = os.getenv('PICSELLIA_TOKEN')
-        organization_name = os.getenv('ORGANIZATION_NAME')
-        client = Client(api_token, organization_name=organization_name)
-
-        experiment = client.get_experiment_by_id(id='0194ac33-af28-742e-8f30-d51ea06c29fd')
+    # Picsell.ia connection
+    api_token = os.environ["api_token"]
+    organization_id = os.environ["organization_id"]
+    client = Client(api_token=api_token, organization_id=organization_id)
+    # Get experiment
+    experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
 
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -299,6 +288,7 @@ if __name__ == "__main__":
                                       fg_iou_thresh=training_parameters.fg_iou_thresh,
                                       bg_iou_thresh=training_parameters.bg_iou_thresh
                                       )
+
     else:
         model = build_model(num_classes=len(class_mapping),
                             score_threshold=training_parameters.confidence_threshold,
@@ -309,12 +299,11 @@ if __name__ == "__main__":
                             anchor_boxes_params=training_parameters.anchor_boxes,
                             fg_iou_thresh=training_parameters.fg_iou_thresh,
                             bg_iou_thresh=training_parameters.bg_iou_thresh,
-                            backbone_type = training_parameters.backbone.backbone_type,
+                            backbone_type=training_parameters.backbone.backbone_type,
                             backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
                             add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
                             extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN
                             )
-
 
     model.to(device)
 
@@ -378,4 +367,3 @@ if __name__ == "__main__":
                                   dataset_version_name='test',
                                   device=device,
                                   batch_size=evaluation_batch_size)
-

@@ -5,6 +5,7 @@ import torch
 from matplotlib import pyplot as plt
 from picsellia import Experiment
 from picsellia.types.enums import InferenceType
+from torchvision.models.detection import RetinaNet
 
 
 def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:
@@ -49,7 +50,7 @@ def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: Lis
     return ax
 
 
-def fill_picsellia_evaluation_tab(model: torch.nn.Module, data_loader, experiment: Experiment,
+def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Experiment,
                                   dataset_version_name: str, device, batch_size: int = 1) -> None:
     """
     Fill picsellia evaluation tab to have a visual representation of the inferences on the dataset split sent via
@@ -65,6 +66,9 @@ def fill_picsellia_evaluation_tab(model: torch.nn.Module, data_loader, experimen
     """
     dataset_version = experiment.get_dataset(name=dataset_version_name)
     picsellia_labels = dataset_version.list_labels()
+
+    model.topk_candidates = 5000
+    model.detections_per_img = 3000
 
     model.to(device)
     model.eval()
@@ -100,7 +104,7 @@ def fill_picsellia_evaluation_tab(model: torch.nn.Module, data_loader, experimen
                              score)
                 picsellia_rectangles.append(rectangle)
 
-            evaluation = experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
+            experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
 
-            job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
+    job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     job.wait_for_done()
