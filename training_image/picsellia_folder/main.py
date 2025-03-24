@@ -3,30 +3,28 @@ import os
 import shutil
 import typing
 import zipfile
+from collections.abc import MutableMapping
 from typing import Union
 
+import albumentations as A
 import cv2
+import picsellia
 import torch
 import yaml
-import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from dotenv import load_dotenv
-import picsellia
-from picsellia import Client, ModelVersion, DatasetVersion
+from picsellia import Client, ModelVersion, DatasetVersion, Experiment
 from picsellia.types.enums import AnnotationFileType
 from pytorch_warmup import ExponentialWarmup
 from torch.utils.data import DataLoader
 
-from collections.abc import MutableMapping
-
+from anchor_box_optimization import AnchorBoxOptimizer
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
-from picsellia_logger import PicselliaLogger
 from model_retinanet import collate_fn, build_retinanet_model, build_model
+from normalize_parameters import compute_auto_normalization_parameters
+from picsellia_logger import PicselliaLogger
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
-from anchor_box_optimization import AnchorBoxOptimizer
-from normalize_parameters import compute_auto_normalization_parameters
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -65,7 +63,7 @@ def get_alias(dataset_version_name: str) -> str:
     raise ValueError('Unknown dataset')
 
 
-def download_datasets(dataset_versions: typing.List[picsellia.DatasetVersion], root_folder: str = 'dataset'):
+def download_datasets(experiment: Experiment, root_folder: str = 'dataset'):
     '''
         .
     ├── train/
@@ -84,19 +82,33 @@ def download_datasets(dataset_versions: typing.List[picsellia.DatasetVersion], r
         └── Annotations/
             └── ...xml
     '''
-    root = root_folder
-    for dataset in dataset_versions:
-        alias = get_alias(dataset_version_name=dataset.version)
+    def download_dataset_version():
         annotations_folder_path = os.path.join(root, alias, 'Annotations')
         images_folder_path = os.path.join(root, alias, 'JPEGImages')
 
         os.makedirs(images_folder_path)
         os.makedirs(annotations_folder_path)
 
-        assets = dataset.list_assets()
+        assets = dataset_version.list_assets()
         assets.download(images_folder_path, max_workers=8)
 
-        download_annotations(dataset_version=dataset, annotation_folder_path=annotations_folder_path)
+        download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
+
+
+    root = root_folder
+
+    if len(experiment.list_attached_dataset_versions()) == 3:
+        for alias in ['test', 'train', 'val']:
+            dataset_version = experiment.get_dataset(alias)
+            logging.info(f'{alias} alias for {dataset_version}')
+            download_dataset_version()
+
+    # elif len(experiment.list_attached_dataset_versions()) == 2:
+    #     for alias in ['test', 'train', 'val']:
+    #
+    #         dataset_version = experiment.get_dataset(alias)
+    #         logging.info(f'{alias} alias for {dataset_version}')
+    #         download_dataset_version()
 
 
 def download_experiment_file(base_model: ModelVersion, experiment_file: str):
@@ -202,7 +214,7 @@ def flatten_dictionary(dictionary, parent_key='', separator='_'):
 
 
 if __name__ == "__main__":
-    torch.manual_seed(0)
+    torch.manual_seed(42)
 
     # Define input/output folders
     dataset_root_folder: str = os.path.join(os.path.dirname(os.getcwd()), 'datasets')
@@ -224,7 +236,7 @@ if __name__ == "__main__":
     datasets = experiment.list_attached_dataset_versions()
 
     if not os.path.exists(dataset_root_folder):
-        download_datasets(dataset_versions=datasets, root_folder=dataset_root_folder)
+        download_datasets(experiment=experiment, root_folder=dataset_root_folder)
     else:
         logging.warning(f'A dataset was previously imported before the training.')
 

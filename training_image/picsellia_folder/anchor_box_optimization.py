@@ -18,10 +18,12 @@ class AnchorBoxOptimizer:
 
         self._labels = self.compute_anchor_boxes_clusters()
 
+        self._len_anchor_sizes = 5 if not self._add_P2_to_FPN else 6
+
     def compute_anchor_boxes_clusters(self):
         logging.info("Computing anchor boxes clusters...")
         returned_layers = [1, 2, 3, 4] if self._add_P2_to_FPN else [2, 3, 4]
-        number_anchor_boxes_sizes: int = 5 * len(returned_layers)  # same as RetinaNet
+        number_anchor_boxes_sizes: int = self._len_anchor_sizes * len(returned_layers)  # same as RetinaNet
 
         X = np.vstack((np.array(self._dataset_bboxes_sizes['width']),
                        np.array(self._dataset_bboxes_sizes['height']))).T
@@ -71,13 +73,16 @@ class AnchorBoxOptimizer:
 
 
     def get_anchor_boxes_sizes_in_RetinaNet_format(self, scales: np.array, returned_layers: list) -> np.array:
-        list_sizes = np.round(np.reshape(np.sort(scales), (5, len(returned_layers)))).astype(int).tolist()
+        list_sizes = np.round(np.reshape(np.sort(scales), (self._len_anchor_sizes, len(returned_layers)))).astype(int).tolist()
         return tuple(tuple(x) for x in list_sizes)
 
 
-
-
+#
+#
 # if __name__ == '__main__':
+#     import cv2
+#     import matplotlib.pyplot as plt
+#
 #     image_size = (2048, 2048)
 #     add_P2_to_FPN = True
 #     path_root = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\datasets'

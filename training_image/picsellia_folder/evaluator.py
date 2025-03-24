@@ -100,7 +100,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
                              int(round(box[1] * height_scale)),
                              int(round((box[2] - box[0]) * width_scale)),
                              int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label],
+                             picsellia_labels[label-1],
                              score)
                 picsellia_rectangles.append(rectangle)
 
