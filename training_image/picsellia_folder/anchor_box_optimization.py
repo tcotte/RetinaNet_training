@@ -13,12 +13,13 @@ class AnchorBoxOptimizer:
     def __init__(self, dataloader: DataLoader, add_P2_to_FPN: bool):
         self._dataloader = dataloader
         self._add_P2_to_FPN = add_P2_to_FPN
+        self._len_anchor_sizes = 5 if not self._add_P2_to_FPN else 6
 
         self._dataset_bboxes_sizes = self.get_dataset_bboxes_sizes()
 
         self._labels = self.compute_anchor_boxes_clusters()
 
-        self._len_anchor_sizes = 5 if not self._add_P2_to_FPN else 6
+        
 
     def compute_anchor_boxes_clusters(self):
         logging.info("Computing anchor boxes clusters...")
