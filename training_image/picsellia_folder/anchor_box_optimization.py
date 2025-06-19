@@ -13,12 +13,11 @@ class AnchorBoxOptimizer:
     def __init__(self, dataloader: DataLoader, add_P2_to_FPN: bool):
         self._dataloader = dataloader
         self._add_P2_to_FPN = add_P2_to_FPN
+        self._len_anchor_sizes = 5 if not self._add_P2_to_FPN else 6
 
         self._dataset_bboxes_sizes = self.get_dataset_bboxes_sizes()
 
         self._labels = self.compute_anchor_boxes_clusters()
-
-        self._len_anchor_sizes = 5 if not self._add_P2_to_FPN else 6
 
     def compute_anchor_boxes_clusters(self):
         logging.info("Computing anchor boxes clusters...")
@@ -65,17 +64,15 @@ class AnchorBoxOptimizer:
     def plot_boxes_sizes(self):
         return sns.jointplot(x="width", y="height", data=self._dataset_bboxes_sizes)
 
-
     def plot_anchor_boxes_clusters(self):
         X = np.vstack((np.array(self._dataset_bboxes_sizes['width']),
                        np.array(self._dataset_bboxes_sizes['height']))).T
         return plt.scatter(X[:, 0], X[:, 1], c=self._labels.labels_, s=50, cmap='viridis')
 
-
     def get_anchor_boxes_sizes_in_RetinaNet_format(self, scales: np.array, returned_layers: list) -> np.array:
-        list_sizes = np.round(np.reshape(np.sort(scales), (self._len_anchor_sizes, len(returned_layers)))).astype(int).tolist()
+        list_sizes = np.round(np.reshape(np.sort(scales), (self._len_anchor_sizes, len(returned_layers)))).astype(
+            int).tolist()
         return tuple(tuple(x) for x in list_sizes)
-
 
 #
 #

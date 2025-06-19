@@ -22,7 +22,8 @@ class PascalVOCDataset(Dataset):
     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
     """
 
-    def __init__(self, data_folder, split, single_cls, add_bckd_as_class: bool = True, transform=None):
+    def __init__(self, data_folder, split, single_cls, do_class_mapping=True, add_bckd_as_class: bool = True,
+                 transform=None):
         """
         :param data_folder: folder where data files are stored
         :param split: split, one of 'TRAIN' or 'TEST'
@@ -43,7 +44,8 @@ class PascalVOCDataset(Dataset):
 
         assert len(self.images) == len(self.annotation_files)
 
-        self.class_mapping, self.number_obj_by_cls = self.get_class_mapping()
+        if do_class_mapping:
+            self.class_mapping, self.number_obj_by_cls = self.get_class_mapping()
 
         self.transform = transform
 
@@ -119,7 +121,15 @@ class PascalVOCDataset(Dataset):
             else:
                 class_ids = [0] * len(boxes)
 
+        boxes, class_ids = self.remove_duplicate_labels(boxes=boxes, labels=class_ids)
+
         return {'boxes': boxes, 'labels': class_ids, 'image': image_path}
+
+    @staticmethod
+    def remove_duplicate_labels(boxes, labels):
+        boxes_labels_stack = np.hstack((np.array(boxes), np.expand_dims(np.array(labels), axis=1)))
+        boxes_labels_stack_without_duplicate = np.unique(boxes_labels_stack, axis=0)
+        return boxes_labels_stack_without_duplicate[:, :4], boxes_labels_stack_without_duplicate[:, -1]
 
     def __getitem__(self, i):
         # Read annotation_files in this image (bounding boxes, labels, difficulties)
@@ -204,7 +214,7 @@ if __name__ == '__main__':
     IMAGE_SIZE = (1024, 1024)
     SINGLE_CLS = True
 
-    train_transform =  A.Compose([
+    train_transform = A.Compose([
         A.RandomCrop(*IMAGE_SIZE),
         A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
         A.HueSaturationValue(p=0.1),
@@ -214,39 +224,39 @@ if __name__ == '__main__':
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
-#
-#     train_transform = A.Compose([
-#         # A.Normalize(mean=[0.9629258011853685, 1.1043921727662964, 0.9835339608076883],
-#         #             std=[0.08148765554920795, 0.10545005065566, 0.13757230267160245],
-#         #             max_pixel_value= 207),
-#         A.RandomCrop(*IMAGE_SIZE),
-#         A.HorizontalFlip(p=0.5),
-#         A.VerticalFlip(p=0.5),
-#         A.OneOf([
-#             A.GaussNoise(std_range=(0.2, 0.44), mean_range=(0.0, 0.0), per_channel=True, noise_scale_factor=1, p=0.5),
-#             A.GridDropout(
-#                 ratio=0.1,
-#                 unit_size_range=None,
-#                 random_offset=True,
-#                 p=0.2),
-#         ]),
-#         A.ColorJitter(brightness=(0.9, 1.1), contrast=(0.9, 1.1), saturation=(0.9, 1.1), hue=(-0.2, 0.2), p=0.5),
-#         A.OneOf([
-#             A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.5),
-#             A.HueSaturationValue(p=0.1),
-#             A.RandomBrightnessContrast(p=0.2),
-#         ]),
-#         A.OneOf([
-#             A.ElasticTransform(alpha=1, sigma=50, interpolation=1, approximate=False, same_dxdy=False,
-#                                mask_interpolation=0, noise_distribution='gaussian', p=0.2),
-#             A.GridDistortion(num_steps=5, distort_limit=(-0.3, 0.3), interpolation=1, normalized=True,
-#                              mask_interpolation=0, p=0.3)
-#         ]),
-#         A.RandomScale(scale_limit=(-0.3, 0.3), interpolation=1, mask_interpolation=0, p=0.5),
-#
-#         ToTensorV2()
-#     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
-#
+    #
+    #     train_transform = A.Compose([
+    #         # A.Normalize(mean=[0.9629258011853685, 1.1043921727662964, 0.9835339608076883],
+    #         #             std=[0.08148765554920795, 0.10545005065566, 0.13757230267160245],
+    #         #             max_pixel_value= 207),
+    #         A.RandomCrop(*IMAGE_SIZE),
+    #         A.HorizontalFlip(p=0.5),
+    #         A.VerticalFlip(p=0.5),
+    #         A.OneOf([
+    #             A.GaussNoise(std_range=(0.2, 0.44), mean_range=(0.0, 0.0), per_channel=True, noise_scale_factor=1, p=0.5),
+    #             A.GridDropout(
+    #                 ratio=0.1,
+    #                 unit_size_range=None,
+    #                 random_offset=True,
+    #                 p=0.2),
+    #         ]),
+    #         A.ColorJitter(brightness=(0.9, 1.1), contrast=(0.9, 1.1), saturation=(0.9, 1.1), hue=(-0.2, 0.2), p=0.5),
+    #         A.OneOf([
+    #             A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.5),
+    #             A.HueSaturationValue(p=0.1),
+    #             A.RandomBrightnessContrast(p=0.2),
+    #         ]),
+    #         A.OneOf([
+    #             A.ElasticTransform(alpha=1, sigma=50, interpolation=1, approximate=False, same_dxdy=False,
+    #                                mask_interpolation=0, noise_distribution='gaussian', p=0.2),
+    #             A.GridDistortion(num_steps=5, distort_limit=(-0.3, 0.3), interpolation=1, normalized=True,
+    #                              mask_interpolation=0, p=0.3)
+    #         ]),
+    #         A.RandomScale(scale_limit=(-0.3, 0.3), interpolation=1, mask_interpolation=0, p=0.5),
+    #
+    #         ToTensorV2()
+    #     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+    #
     val_dataset = PascalVOCDataset(
         data_folder=DATA_VALIDATION_DIR,
         split='test',

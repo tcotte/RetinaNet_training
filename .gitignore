@@ -173,3 +173,6 @@ saved_models/
 datasets/
 run/
 ScaleNet/
+training_image/datasets
+inferences/dataset
+inferences/models

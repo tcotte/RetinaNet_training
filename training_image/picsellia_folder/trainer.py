@@ -56,7 +56,8 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
     early_stopper = EarlyStopper(patience=patience)
     visualisation_val_loss = True
     best_map = 0.0
-    metric = MeanAveragePrecision(iou_type="bbox", extended_summary=True)
+    metric = MeanAveragePrecision(iou_type="bbox", max_detection_thresholds=[3000, 5000, 10000],
+                                  extended_summary=True)
 
     loss_training_hist = Averager()
     loss_validation_hist = Averager()
