@@ -51,7 +51,8 @@ def build_retinanet_model(
     )
 
     if anchor_boxes_params is not None:
-        model.anchor_generator = AnchorGenerator(**anchor_boxes_params.dict())
+        model.anchor_generator = AnchorGenerator(**{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
+
 
     num_anchors = model.head.classification_head.num_anchors
     model.head.classification_head = RetinaNetClassificationHead(

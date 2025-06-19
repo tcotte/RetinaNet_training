@@ -19,6 +19,11 @@ class AnchorBoxOptimizer:
 
         self._labels = self.compute_anchor_boxes_clusters()
 
+<<<<<<< HEAD
+=======
+        
+
+>>>>>>> 522caeccd831acc2b05433b05b949e7df0458a1d
     def compute_anchor_boxes_clusters(self):
         logging.info("Computing anchor boxes clusters...")
         returned_layers = [1, 2, 3, 4] if self._add_P2_to_FPN else [2, 3, 4]
