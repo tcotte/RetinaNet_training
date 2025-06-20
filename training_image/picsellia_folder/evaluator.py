@@ -1,11 +1,17 @@
+import os
 from typing import List, Dict
 
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from picsellia import Experiment
+from picsellia import Experiment, Client
 from picsellia.types.enums import InferenceType
 from torchvision.models.detection import RetinaNet
+from torchvision.models.detection.anchor_utils import AnchorGenerator
+
+from training_image.picsellia_folder.dataset import PascalVOCTestDataset
+from training_image.picsellia_folder.model_retinanet import build_retinanet_model, collate_fn
+from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
 
 
 def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:
@@ -100,7 +106,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
                              int(round(box[1] * height_scale)),
                              int(round((box[2] - box[0]) * width_scale)),
                              int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label-1],
+                             picsellia_labels[label - 1],
                              score)
                 picsellia_rectangles.append(rectangle)
 
@@ -108,3 +114,72 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     job.wait_for_done()
+
+
+if __name__ == '__main__':
+    import albumentations as A
+    from albumentations import ToTensorV2
+
+    client = Client(api_token=os.environ['api_token'], organization_name='SGS_France')
+    # Get experiment
+    experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
+
+    # Get device
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\models\latest.pth'
+
+    training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
+    training_parameters.device = device.type
+    if device.type == 'cuda':
+        training_parameters.device_name = torch.cuda.get_device_name()
+
+    # inferences
+    model = build_retinanet_model(num_classes=2,
+                                  use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
+                                  trained_weights=model_weights_path,
+                                  score_threshold=0.2,
+                                  # score_threshold=training_parameters.confidence_threshold,
+                                  iou_threshold=0.2,
+                                  unfrozen_layers=training_parameters.unfreeze,
+                                  mean_values=experiment.get_log('All parameters').data[
+                                      'augmentations_normalization_mean'],
+                                  std_values=experiment.get_log('All parameters').data[
+                                      'augmentations_normalization_std'],
+                                  anchor_boxes_params=training_parameters.anchor_boxes,
+                                  fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                  bg_iou_thresh=training_parameters.bg_iou_thresh
+                                  )
+    model.anchor_generator = AnchorGenerator(
+        sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
+        aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
+
+    model.load_state_dict(torch.load(model_weights_path))
+    model.to(device)
+    model.eval()
+
+    # dataset
+    image_size = (1024, 1024)
+    random_crop = False
+
+    valid_transform = A.Compose([
+        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
+        ToTensorV2()
+    ])
+
+    test_dataset = PascalVOCTestDataset(
+        image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
+        transform=valid_transform
+    )
+
+
+    val_data_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        num_workers=8,
+        batch_size=1,
+        shuffle=False,
+        collate_fn=collate_fn
+    )
+
+    fill_picsellia_evaluation_tab(model=model, data_loader=val_data_loader, experiment=experiment,
+                                  dataset_version_name='test', device=device, batch_size=1)

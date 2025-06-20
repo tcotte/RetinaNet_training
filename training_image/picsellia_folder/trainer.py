@@ -20,11 +20,6 @@ def evaluate_one_epoch(model, val_data_loader, device, metric):
         with torch.no_grad():
             predictions = model(images)
 
-        # processed_predictions = apply_postprocess_on_predictions(
-        #     predictions=predictions,
-        #     iou_threshold=MIN_IOU_THRESHOLD,
-        #     confidence_threshold=MIN_CONFIDENCE)
-
         # send targets to GPU
         targets_gpu = []
         for j in range(len(targets)):

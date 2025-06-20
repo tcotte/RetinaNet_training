@@ -130,17 +130,13 @@ def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
 
 
 def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str,
+                       augmentation_version: int,
                        random_crop: bool = False) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
-    train_transform = A.Compose([
-        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
-        A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
-        A.HueSaturationValue(p=0.1),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.2),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+    from augmentations import *
+
+    train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
+        random_crop=random_crop, image_size=image_size)
 
     valid_transform = A.Compose([
         A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
@@ -275,7 +271,8 @@ if __name__ == "__main__":
         num_workers=training_parameters.workers_number,
         batch_size=training_parameters.batch_size,
         path_root=dataset_root_folder,
-        random_crop=training_parameters.augmentations.crop
+        random_crop=training_parameters.augmentations.crop,
+        augmentation_version=training_parameters.augmentations.version
     )
 
     class_mapping = get_class_mapping_from_picsellia(dataset_versions=datasets,
@@ -381,3 +378,4 @@ if __name__ == "__main__":
                                   dataset_version_name='test',
                                   device=device,
                                   batch_size=evaluation_batch_size)
+

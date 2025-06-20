@@ -145,7 +145,7 @@ if __name__ == '__main__':
         processed_predictions = apply_postprocess_on_predictions(
             predictions=predictions,
             iou_threshold=0.2,
-            confidence_threshold=0.3)
+            confidence_threshold=0.2)
 
         # send targets to GPU
         targets_gpu = [{k: v.to(device=device, non_blocking=True) for k, v in target.items()} for target in targets]

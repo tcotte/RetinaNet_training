@@ -51,6 +51,7 @@ class NormalizationParameters(BaseModel):
 
 #
 class AugmentationParameters(BaseModel):
+    version: int = 1
     crop: bool = False
     normalization: NormalizationParameters = NormalizationParameters()
 
