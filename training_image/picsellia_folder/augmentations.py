@@ -58,7 +58,7 @@ def train_augmentation_v2(random_crop, image_size: tuple[int, int]) -> A.Compose
         A.GridDropout(ratio=0.3, unit_size_range = (10, 20), random_offset = True, p = 0.2 ),
 
         ToTensorV2()
-    ], bbox_params=A.BboxParams(format='yolo', label_fields=['category_ids']))
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
 if __name__ == '__main__':
     BOX_COLOR = (255, 0, 0)  # Red

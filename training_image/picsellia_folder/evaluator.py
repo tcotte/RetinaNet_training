@@ -9,9 +9,9 @@ from picsellia.types.enums import InferenceType
 from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 
-from training_image.picsellia_folder.dataset import PascalVOCTestDataset
-from training_image.picsellia_folder.model_retinanet import build_retinanet_model, collate_fn
-from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
+from dataset import PascalVOCTestDataset
+from model_retinanet import build_retinanet_model, collate_fn
+from retinanet_parameters import TrainingParameters
 
 
 def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:

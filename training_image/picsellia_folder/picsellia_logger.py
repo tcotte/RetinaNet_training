@@ -104,6 +104,7 @@ class PicselliaLogger:
 
     def on_train_end(self, best_validation_map: float, path_saved_models: str, path_precision_recall_plot: str):
         self._experiment.log(name="Best Validation Map", type=LogType.VALUE, data=best_validation_map)
+
         self.store_model(model_path=os.path.join(path_saved_models, 'best.pth'), model_name='model-best')
         self.store_model(model_path=os.path.join(path_saved_models, 'latest.pth'), model_name='model-latest')
 
@@ -116,7 +117,10 @@ class PicselliaLogger:
         self._experiment.update(status=ExperimentStatus.TERMINATED)
 
     def store_model(self, model_path: str, model_name: str) -> None:
-        self._experiment.store(model_name, model_path, do_zip=True)
+        try:
+            self._experiment.store(model_name, model_path, do_zip=True)
+        except FileNotFoundError as e:
+            logging.warn(f'It seems that the file {model_name} was not saved correctly on Picsellia. {str(e)}')
 
     def get_experiment_id(self) -> uuid.UUID:
         return self._experiment.id
