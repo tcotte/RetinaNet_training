@@ -2,7 +2,11 @@ import os
 from enum import Enum
 from typing import Union, Optional, Tuple, List, Any
 from distutils.util import strtobool
+
+import cv2
+from albumentations import ToTensorV2
 from pydantic import BaseModel, field_validator
+import albumentations as A
 
 
 class BackboneType(Enum):
@@ -141,6 +145,66 @@ class TrainingParameters(BaseModel):
             return value, value
 
         return value
+
+
+def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose:
+    """
+    The aim of this function will be to implement a similar augmentations as YOLOv8 can do:
+    https://docs.ultralytics.com/guides/yolo-data-augmentation/
+    :param random_crop:
+    :param image_size:
+    :return:
+    """
+    return A.Compose([
+
+        # Color Space Augmentations
+        A.HueSaturationValue(
+            hue_shift_limit=0.015*255,
+            sat_shift_limit=0.7*255,
+            val_shift_limit=0.4*255,
+            p=0.5),
+
+        # Geometric transformations
+        A.Rotate(p=0.0, border_mode=cv2.BORDER_CONSTANT),
+
+        # Translation
+        A.ShiftScaleRotate(shift_limit=(0.5, 0.5), scale_limit=(0, 0), rotate_limit=(0, 0), p=0.1),
+        # Scale
+        A.ShiftScaleRotate(shift_limit=(0, 0), scale_limit=0.5, rotate_limit=(0, 0), p=0.5),
+        # shear -> not implemented -> p =0
+        # Perspective -> not implemented -> p =0
+        # Flip Up-Down
+        A.VerticalFlip(p=0),
+        # Flip Left - Right
+        A.HorizontalFlip(p=0.5),
+
+        # BGR Channel Swap -> not implemented -> p =0
+
+         # Mosaic
+        A.OneOf([
+            A.Resize(*image_size),
+            A.Mosaic(
+                grid_yx=[2, 2],
+                target_size=image_size,
+                cell_shape=image_size,
+                center_range=[0.5, 0.5],
+                fit_mode="cover",
+                interpolation=cv2.INTER_LINEAR,
+                mask_interpolation=cv2.INTER_NEAREST,
+                fill=0,
+                fill_mask=0,
+                p=0.5
+            )
+        ]),
+
+        # Mixup(mixup) -> not implemented -> p =0
+        # CutMix (cutmix) -> not implemented -> p =0
+
+        # Random Erasing (erasing) -> seems like it is useful only for classification
+
+        # A.RandomBrightnessContrast(p=0.2),
+        ToTensorV2()
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
 
 if __name__ == '__main__':

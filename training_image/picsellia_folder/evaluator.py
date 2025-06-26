@@ -76,6 +76,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
     model.topk_candidates = 5000
     model.detections_per_img = 3000
 
+
     model.to(device)
     model.eval()
 
@@ -127,7 +128,7 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\models\latest.pth'
+    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\saved_models\candida_albicans\latest_retiunanet_1024.pth'
 
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
@@ -140,7 +141,7 @@ if __name__ == '__main__':
                                   trained_weights=model_weights_path,
                                   score_threshold=0.2,
                                   # score_threshold=training_parameters.confidence_threshold,
-                                  iou_threshold=0.2,
+                                  iou_threshold=0.1,
                                   unfrozen_layers=training_parameters.unfreeze,
                                   mean_values=experiment.get_log('All parameters').data[
                                       'augmentations_normalization_mean'],
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     model.eval()
 
     # dataset
-    image_size = (1024, 1024)
+    image_size = experiment.get_log('All parameters').data['image_size']
     random_crop = False
 
     valid_transform = A.Compose([

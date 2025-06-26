@@ -1,0 +1,21 @@
+FROM picsellia/cpu:python3.9
+
+RUN pip3 install picsellia
+RUN pip3 install torch torchvision
+RUN pip3 install albumentations
+RUN pip3 install pycocotools
+RUN pip3 install onnx
+RUN pip3 install onnxruntime
+RUN pip3 install imutils
+
+
+COPY utils /src/utils
+COPY post_processing/src /src
+
+RUN chown -R 42420:42420 /src
+RUN mkdir -p ./models && chmod 777 ./models
+RUN mkdir -p ./dataset && chmod 777 ./dataset
+RUN chmod 777 ./
+
+CMD ["/src/main.py"]
+ENTRYPOINT ["python3.9"]

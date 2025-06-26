@@ -9,7 +9,8 @@ from albumentations import ToTensorV2
 from picsellia import Client
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection.anchor_utils import AnchorGenerator
-
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
 from training_image.picsellia_folder.dataset import PascalVOCDataset
 from training_image.picsellia_folder.main import download_datasets, download_annotations
 from training_image.picsellia_folder.model_retinanet import build_retinanet_model, collate_fn
@@ -35,7 +36,7 @@ def download_dataset_version(root, alias, experiment):
 
 if __name__ == '__main__':
     dataset_root_folder = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset'
-    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\models\latest.pth'
+    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\exports\0197a212-cc33-78a1-8d93-ed92b524f42b-model\latest.pth'
 
     # Picsell.ia connection
     api_token = os.environ["api_token"]
