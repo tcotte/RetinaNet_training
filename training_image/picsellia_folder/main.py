@@ -135,6 +135,7 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
     from augmentations import train_augmentation_v2, train_augmentation_v1, train_augmentation_v3
 
+
     train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
         random_crop=random_crop, image_size=image_size)
 
