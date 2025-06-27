@@ -57,6 +57,13 @@ class NormalizationParameters(BaseModel):
 
         return value
 
+    @field_validator("mean", "std", mode="before")
+    def _transform_str_to_tuple(value: Union[str, tuple]) -> tuple:
+        if isinstance(value, str):
+            return eval(value)
+
+        return value
+
 
 #
 class AugmentationParameters(BaseModel):
