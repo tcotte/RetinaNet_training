@@ -75,7 +75,7 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose
             hue_shift_limit=0.015*255,
             sat_shift_limit=0.7*255,
             val_shift_limit=0.4*255,
-            p=0.5),
+            p=1),
 
         # Geometric transformations
         A.Rotate(p=0.0, border_mode=cv2.BORDER_CONSTANT),
@@ -83,7 +83,7 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose
         # Translation
         A.ShiftScaleRotate(shift_limit=(0.5, 0.5), scale_limit=(0, 0), rotate_limit=(0, 0), p=0.1),
         # Scale
-        A.ShiftScaleRotate(shift_limit=(0, 0), scale_limit=0.5, rotate_limit=(0, 0), p=0.5),
+        A.ShiftScaleRotate(shift_limit=(0, 0), scale_limit=[-0.5, 0.5], rotate_limit=(0, 0), p=0.5),
         # shear -> not implemented -> p =0
         # Perspective -> not implemented -> p =0
         # Flip Up-Down

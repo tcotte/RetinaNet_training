@@ -1,5 +1,7 @@
 import logging
+import random
 
+import albumentations
 import cv2
 import imutils
 import imutils.paths
@@ -15,6 +17,8 @@ from PIL import Image
 from tqdm import tqdm
 import xml.etree.ElementTree as ET
 import albumentations as A
+
+from training_image.picsellia_folder.augmentations import train_augmentation_v3
 
 
 class PascalVOCDataset(Dataset):
@@ -33,6 +37,11 @@ class PascalVOCDataset(Dataset):
         self._single_cls = single_cls
         self._add_bckd_as_class = add_bckd_as_class
 
+
+        self.transform = transform
+
+        self._apply_mosaic = self._mosaic_in_transform()
+
         assert self.split in {'TRAIN', 'TEST'}
 
         self.data_folder = data_folder
@@ -47,7 +56,17 @@ class PascalVOCDataset(Dataset):
         if do_class_mapping:
             self.class_mapping, self.number_obj_by_cls = self.get_class_mapping()
 
-        self.transform = transform
+    def _mosaic_in_transform(self):
+        for trans in self.transform.transforms:
+            if type(trans) == albumentations.augmentations.mixing.transforms.Mosaic:
+                return True
+
+            elif type(trans) == albumentations.core.composition.OneOf:
+                for x in trans.transforms:
+                    if type(x) == albumentations.augmentations.mixing.transforms.Mosaic:
+                        return True
+
+        return False
 
     def get_class_mapping(self):
         logging.info(f'Compute class mapping for {self.split} dataset')
@@ -141,12 +160,34 @@ class PascalVOCDataset(Dataset):
 
         # difficulties = torch.ByteTensor(objects['difficulties'])  # (n_objects)
 
-        # Apply transformations
-        # [v for i,v in enumerate(l) if i!=4]
-        transformed = self.transform(image=np.array(image),
-                                     bboxes=np.array(objects['boxes']),
-                                     class_labels=np.array(objects['labels']),
-                                     mosaic_metadata=[self.parse_annotation(xml_file=self.annotation_files[x], single_cls=True) for x in range(len(self.annotation_files)) if x!=i])
+        if self._apply_mosaic:
+            # Prepare mosaic_metadata: 3 additional samples (total of 4 for mosaic)
+            mosaic_candidates = list(range(0, i)) + list(range(i + 1, len(self.annotation_files)))
+            mosaic_indices = random.sample(mosaic_candidates, k=3)
+
+            mosaic_metadata = []
+            for idx in mosaic_indices:
+                ann = self.parse_annotation(self.annotation_files[idx], single_cls=True)
+                mosaic_image = Image.open(ann['image']).convert('RGB')
+                mosaic_np = np.array(mosaic_image)
+                mosaic_metadata.append({
+                    "image": mosaic_np,
+                    "bboxes": ann["boxes"],
+                    "class_labels": ann["labels"]
+                })
+
+            # Apply transformations
+            # [v for i,v in enumerate(l) if i!=4]
+            transformed = self.transform(image=np.array(image),
+                                         bboxes=np.array(objects['boxes']),
+                                         class_labels=np.array(objects['labels']),
+                                         mosaic_metadata=mosaic_metadata)
+
+        else:
+            transformed = self.transform(image=np.array(image),
+                                         bboxes=np.array(objects['boxes']),
+                                         class_labels=np.array(objects['labels']))
+
         image = transformed['image'] / 225.
         boxes = torch.FloatTensor(transformed['bboxes'])  # (n_objects, 4)
         labels = torch.LongTensor(transformed['class_labels'])  # (n_objects)
@@ -212,19 +253,11 @@ class PascalVOCTestDataset(Dataset):
 
 
 if __name__ == '__main__':
-    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\yolov8_keras\dataset\test'
+    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\datasets\train'
     IMAGE_SIZE = (1024, 1024)
     SINGLE_CLS = True
 
-    train_transform = A.Compose([
-        A.RandomCrop(*IMAGE_SIZE),
-        A.Rotate(p=0.5, border_mode=cv2.BORDER_REFLECT),
-        A.HueSaturationValue(p=0.1),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.2),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+    train_transform = train_augmentation_v3(random_crop=False, image_size=IMAGE_SIZE)
 
     #
     #     train_transform = A.Compose([

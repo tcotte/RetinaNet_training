@@ -216,6 +216,7 @@ if __name__ == '__main__':
                'step_size': 100,
                'gamma': 0.1
            }},
+           'iou_threshold': 0.2,
            'coco_pretrained_weights': 'true',
            # 'image_size': 2,
            'loss': {'bbox_regression': 0.7, 'classification': 0.3},
