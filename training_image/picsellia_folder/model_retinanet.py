@@ -18,6 +18,7 @@ from retinanet_parameters import FPNExtraBlocks, BackboneType
 def build_retinanet_model(
         score_threshold: float,
         iou_threshold: float,
+        image_size: Tuple[int, int],
         max_det: int = 300,
         num_classes: int = 91,
         use_COCO_pretrained_weights: bool = True,
@@ -27,7 +28,8 @@ def build_retinanet_model(
         trained_weights: Union[str, None] = None,
         anchor_boxes_params: Union[dict, None] = None,
         fg_iou_thresh: float = 0.5,
-        bg_iou_thresh: float = 0.4
+        bg_iou_thresh: float = 0.4,
+
 ):
     if trained_weights is None:
         if use_COCO_pretrained_weights:
@@ -47,7 +49,9 @@ def build_retinanet_model(
         detections_per_img=max_det,
         trainable_backbone_layers=unfrozen_layers,
         fg_iou_thresh=fg_iou_thresh,
-        bg_iou_thresh=bg_iou_thresh
+        bg_iou_thresh=bg_iou_thresh,
+        min_size=min(*image_size),
+        max_size=max(*image_size)
     )
 
     if anchor_boxes_params is not None:
@@ -75,6 +79,7 @@ def build_retinanet_model(
 def build_model(
         score_threshold: float,
         iou_threshold: float,
+        image_size: Tuple[int, int],
         max_det: int = 300,
         num_classes: int = 91,
         mean_values: Union[Tuple[float, float, float], None] = None,
@@ -119,7 +124,9 @@ def build_model(
                       detections_per_img=max_det,
                       trainable_backbone_layers=unfrozen_layers,
                       fg_iou_thresh=fg_iou_thresh,
-                      bg_iou_thresh=bg_iou_thresh
+                      bg_iou_thresh=bg_iou_thresh,
+                      min_size=min(*image_size),
+                      max_size=max(*image_size)
                       )
 
     num_anchors = model.head.classification_head.num_anchors

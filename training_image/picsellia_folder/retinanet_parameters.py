@@ -28,9 +28,14 @@ class LRDecayParameters(BaseModel):
     step_size: int = 50
     gamma: float = 0.5
 
+class LRPlateauParameters(BaseModel):
+    factor: float = 0.1
+    patience: int = 10
 
 class LearningRateParameters(BaseModel):
     initial_lr: float = 0.001
+    policy: str = 'plateau' # or exp
+    plateau: LRPlateauParameters = LRPlateauParameters()
     warmup: LRWarmupParameters = LRWarmupParameters()
     decay: LRDecayParameters = LRDecayParameters()
 

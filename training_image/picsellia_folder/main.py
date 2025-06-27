@@ -15,6 +15,7 @@ from albumentations.pytorch import ToTensorV2
 from picsellia import Client, ModelVersion, DatasetVersion, Experiment
 from picsellia.types.enums import AnnotationFileType
 from pytorch_warmup import ExponentialWarmup
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from anchor_box_optimization import AnchorBoxOptimizer
@@ -298,7 +299,8 @@ if __name__ == "__main__":
                                       std_values=training_parameters.augmentations.normalization.std,
                                       anchor_boxes_params=training_parameters.anchor_boxes,
                                       fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                      bg_iou_thresh=training_parameters.bg_iou_thresh
+                                      bg_iou_thresh=training_parameters.bg_iou_thresh,
+                                      image_size=training_parameters.image_size
                                       )
 
     else:
@@ -314,7 +316,8 @@ if __name__ == "__main__":
                             backbone_type=training_parameters.backbone.backbone_type,
                             backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
                             add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
-                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN
+                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
+                            image_size=training_parameters.image_size
                             )
 
     model.to(device)
@@ -324,9 +327,15 @@ if __name__ == "__main__":
                               weight_decay=training_parameters.weight_decay,
                               model_params=model.parameters())
 
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=training_parameters.learning_rate.decay.step_size,
-                                                   gamma=training_parameters.learning_rate.decay.gamma)
+    if training_parameters.learning_rate.policy != 'plateau':
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                       step_size=training_parameters.learning_rate.decay.step_size,
+                                                       gamma=training_parameters.learning_rate.decay.gamma)
+    else:
+        lr_scheduler = ReduceLROnPlateau(optimizer, 'min',
+                                         factor=training_parameters.learning_rate.plateau.factor,
+                                         patience=training_parameters.learning_rate.plateau.patience)
+
     warmup_scheduler = ExponentialWarmup(optimizer,
                                          warmup_period=training_parameters.learning_rate.warmup.warmup_period,
                                          last_step=training_parameters.learning_rate.warmup.last_step

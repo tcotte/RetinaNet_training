@@ -3,6 +3,7 @@ import os
 
 import torch
 from matplotlib import pyplot as plt
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
 
@@ -120,7 +121,12 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
 
             # update the learning rate
             with lr_warmup.dampening():
-                lr_scheduler.step()
+                if isinstance(lr_scheduler, ReduceLROnPlateau):
+                    lr_scheduler.step(total_val_loss.item())
+                elif isinstance(lr_scheduler, StepLR):
+                    lr_scheduler.step()
+                else:
+                    raise f'Invalid lr scheduler policy: {type(lr_scheduler)}'
 
         # Evaluation
         validation_metrics = evaluate_one_epoch(model, val_data_loader, device, metric)
