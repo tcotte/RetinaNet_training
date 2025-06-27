@@ -142,9 +142,11 @@ class PascalVOCDataset(Dataset):
         # difficulties = torch.ByteTensor(objects['difficulties'])  # (n_objects)
 
         # Apply transformations
+        # [v for i,v in enumerate(l) if i!=4]
         transformed = self.transform(image=np.array(image),
                                      bboxes=np.array(objects['boxes']),
-                                     class_labels=np.array(objects['labels']))
+                                     class_labels=np.array(objects['labels']),
+                                     mosaic_metadata=[self.parse_annotation(xml_file=self.annotation_files[x], single_cls=True) for x in range(len(self.annotation_files)) if x!=i])
         image = transformed['image'] / 225.
         boxes = torch.FloatTensor(transformed['bboxes'])  # (n_objects, 4)
         labels = torch.LongTensor(transformed['class_labels'])  # (n_objects)
