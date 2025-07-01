@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
+
 class AnchorBoxOptimizer:
     def __init__(self, dataloader: DataLoader, add_P2_to_FPN: bool):
         self._dataloader = dataloader

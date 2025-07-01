@@ -4,6 +4,14 @@ import torch
 import yaml
 from torchvision.ops import nms
 
+def read_yaml_file(file_path: str) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    with open(file_path) as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+            return None
+
 
 def get_CUDA_memory_allocation():
     device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')

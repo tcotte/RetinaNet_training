@@ -7,7 +7,6 @@ from collections.abc import MutableMapping
 from typing import Union
 
 import albumentations as A
-import cv2
 import picsellia
 import torch
 import yaml
@@ -18,7 +17,7 @@ from pytorch_warmup import ExponentialWarmup
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from anchor_box_optimization import AnchorBoxOptimizer
+from training_image.picsellia_folder.anchor_optimization.anchor_box_optimization import AnchorBoxOptimizer
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
 from model_retinanet import collate_fn, build_retinanet_model, build_model
@@ -26,6 +25,8 @@ from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
+from training_image.picsellia_folder.anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
+from training_image.picsellia_folder.utils import read_yaml_file
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -83,6 +84,7 @@ def download_datasets(experiment: Experiment, root_folder: str = 'dataset'):
         └── Annotations/
             └── ...xml
     '''
+
     def download_dataset_version():
         annotations_folder_path = os.path.join(root, alias, 'Annotations')
         images_folder_path = os.path.join(root, alias, 'JPEGImages')
@@ -94,7 +96,6 @@ def download_datasets(experiment: Experiment, root_folder: str = 'dataset'):
         assets.download(images_folder_path, max_workers=8)
 
         download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
-
 
     root = root_folder
 
@@ -132,13 +133,20 @@ def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
 
 def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str,
                        augmentation_version: int,
-                       random_crop: bool = False) -> \
+                       random_crop: bool = False, augmentation_hyperparams_file: typing.Optional[str] = None) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
-    from augmentations import train_augmentation_v2, train_augmentation_v1, train_augmentation_v3
+    from augmentations import train_augmentation_v1, train_augmentation_v2, train_augmentation_v3
+    if augmentation_version > 2:
+        if augmentation_hyperparams_file is not None:
+            augmentation_params = read_yaml_file(file_path=augmentation_hyperparams_file)
+        else:
+            augmentation_params = {}
+            train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
+            random_crop=random_crop, image_size=image_size, **augmentation_params)
 
-
-    train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
-        random_crop=random_crop, image_size=image_size)
+    else:
+        train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
+            random_crop=random_crop, image_size=image_size)
 
     valid_transform = A.Compose([
         A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
@@ -243,6 +251,10 @@ if __name__ == "__main__":
     # Download weights
     download_experiment_file(base_model=base_model, experiment_file='weights')
 
+    # Download augmentation hyperparameter file
+    download_experiment_file(base_model=base_model, experiment_file='aug_hyp')
+    experiment.store(name='aug_hyp', path=base_model.get_file('aug_hyp').filename)
+
     # Download parameters
     parameters = experiment.get_log(name='parameters').data
 
@@ -281,12 +293,23 @@ if __name__ == "__main__":
                                                      single_cls=training_parameters.single_class)
 
     if training_parameters.anchor_boxes.auto_size:
+        """
+        # first version of the anchor boxes optimizer
         anchor_boxes_optimizer = AnchorBoxOptimizer(dataloader=train_dataloader,
                                                     add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
         anchor_sizes = anchor_boxes_optimizer.get_anchor_boxes_sizes()
         training_parameters.anchor_boxes.sizes = anchor_sizes
         # (0.5, 1.0, 2.0) is RetinaNet aspect_ratio by default
         training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
+        """
+
+        anchors_parameters = compute_optimized_anchors(
+            annotations_path=os.path.join(dataset_root_folder, 'train', 'Annotations'),
+            temp_csv_filepath='labels.csv')
+
+        training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
+        training_parameters.anchor_boxes.aspect_ratios = anchors_parameters['ratios']
+
 
     # Build model
     if training_parameters.coco_pretrained_weights:
@@ -388,4 +411,3 @@ if __name__ == "__main__":
                                   dataset_version_name='test',
                                   device=device,
                                   batch_size=evaluation_batch_size)
-

@@ -3,6 +3,10 @@ import cv2
 from albumentations import ToTensorV2
 from matplotlib import pyplot as plt
 
+import yaml
+
+from training_image.picsellia_folder.utils import read_yaml_file
+
 
 def train_augmentation_v1(random_crop, image_size: tuple[int, int]) -> A.Compose:
     return A.Compose([
@@ -55,12 +59,13 @@ def train_augmentation_v2(random_crop, image_size: tuple[int, int]) -> A.Compose
         # Apply blur
         A.GaussianBlur(blur_limit=(5, 15), p=0.3),
 
-        A.GridDropout(ratio=0.3, unit_size_range = (10, 20), random_offset = True, p = 0.2 ),
+        A.GridDropout(ratio=0.3, unit_size_range=(10, 20), random_offset=True, p=0.2),
 
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
-def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose:
+
+def train_augmentation_v3(random_crop, image_size: tuple[int, int], **kwargs) -> A.Compose:
     """
     The aim of this function will be to implement a similar augmentations as YOLOv8 can do:
     https://docs.ultralytics.com/guides/yolo-data-augmentation/
@@ -68,32 +73,73 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose
     :param image_size:
     :return:
     """
+
+    parameters = {
+        'HueSaturationValue': {
+            'hue': 0.015,
+            'sat': 0.7,
+            'val': 0.4,
+            'prob': 1.0
+        },
+        'Rotate': {
+            'prob': 0.0,
+            'limit': 90
+        },
+        'Translation': {
+            'shift_limit': 0.5,
+            'prob': 0.1
+        },
+        'Scale': {
+            'scale_limit': 0.5,
+            'prob': 0.5
+        },
+        'VerticalFlip': {
+            'prob': 0.0
+        },
+        'HorizontalFlip': {
+            'prob': 0.5
+        },
+        'Mosaic': {
+            'prob': 0.5
+        }
+    }
+
+    parameters.update(kwargs)
+
     return A.Compose([
 
         # Color Space Augmentations
         A.HueSaturationValue(
-            hue_shift_limit=0.015*255,
-            sat_shift_limit=0.7*255,
-            val_shift_limit=0.4*255,
-            p=1),
+            hue_shift_limit=parameters['HueSaturationValue']['hue'] * 255,
+            sat_shift_limit=parameters['HueSaturationValue']['sat'] * 255,
+            val_shift_limit=parameters['HueSaturationValue']['val'] * 255,
+            p=parameters['HueSaturationValue']['prob']),
 
         # Geometric transformations
-        A.Rotate(p=0.0, border_mode=cv2.BORDER_CONSTANT),
+        A.Rotate(p=parameters['Rotate']['prob'], limit=(-parameters['Rotate']['limit'], parameters['Rotate']['limit']),
+                 border_mode=cv2.BORDER_CONSTANT),
 
         # Translation
-        A.ShiftScaleRotate(shift_limit=(0.5, 0.5), scale_limit=(0, 0), rotate_limit=(0, 0), p=0.1),
+        A.ShiftScaleRotate(
+            shift_limit=(parameters['Translation']['shift_limit'], parameters['Translation']['shift_limit']),
+            scale_limit=(0, 0),
+            rotate_limit=(0, 0),
+            p=parameters['Translation']['prob']),
         # Scale
-        A.ShiftScaleRotate(shift_limit=(0, 0), scale_limit=[-0.5, 0.5], rotate_limit=(0, 0), p=0.5),
+        A.ShiftScaleRotate(shift_limit=(0, 0),
+                           scale_limit=(-parameters['Scale']['scale_limit'], parameters['Scale']['scale_limit']),
+                           rotate_limit=(0, 0),
+                           p=parameters['Scale']['prob']),
         # shear -> not implemented -> p =0
         # Perspective -> not implemented -> p =0
         # Flip Up-Down
-        A.VerticalFlip(p=0),
+        A.VerticalFlip(p=parameters['VerticalFlip']['prob']),
         # Flip Left - Right
-        A.HorizontalFlip(p=0.5),
+        A.HorizontalFlip(p=parameters['HorizontalFlip']['prob']),
 
         # BGR Channel Swap -> not implemented -> p =0
 
-         # Mosaic
+        # Mosaic
         A.OneOf([
             A.Resize(*image_size),
             A.Mosaic(
@@ -106,7 +152,7 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose
                 mask_interpolation=cv2.INTER_NEAREST,
                 fill=0,
                 fill_mask=0,
-                p=0.5
+                p=parameters['Mosaic']['prob']
             )
         ]),
 
@@ -119,7 +165,10 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int]) -> A.Compose
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
+
 if __name__ == '__main__':
+    import numpy as np
+
     BOX_COLOR = (255, 0, 0)  # Red
     TEXT_COLOR = (255, 255, 255)  # White
 
@@ -155,18 +204,20 @@ if __name__ == '__main__':
         plt.imshow(img)
 
 
-    image = cv2.imread(r"inferences\dataset\test\JPEGImages\2025_02_13-11_05_29.jpg", cv2.IMREAD_COLOR_RGB)
-    # visualize(image, [], [], [])
+    image = cv2.imread(r"C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages\2025_02_13-11_05_29.jpg", cv2.IMREAD_COLOR_RGB)
+
+
+
+    d = read_yaml_file(file_path=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\picsellia_folder\aug_hyp.yaml')
+
     for i in range(10):
-        transform = train_augmentation_v2(random_crop=False, image_size=(1024, 1024))
-        transformed = transform(image=image, bboxes=[], category_ids=[])
+        transform = train_augmentation_v3(random_crop=False, image_size=(1024, 1024), **d)
+        transformed = transform(image=image, class_labels=['d'], bboxes=[], category_ids=[])
         visualize(
-            transformed["image"],
+            np.transpose(transformed['image'].numpy(), (1, 2, 0)),
             transformed["bboxes"],
             transformed["category_ids"],
             {},
         )
         print(transformed['image'].shape)
         plt.show()
-
-
