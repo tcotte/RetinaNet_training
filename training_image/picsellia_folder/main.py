@@ -308,7 +308,7 @@ if __name__ == "__main__":
             temp_csv_filepath='labels.csv')
 
         training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
-        training_parameters.anchor_boxes.aspect_ratios = anchors_parameters['ratios']
+        training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
 
 
     # Build model

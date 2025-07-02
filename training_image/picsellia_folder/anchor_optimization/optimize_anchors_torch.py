@@ -430,13 +430,14 @@ def parse_annotations(xml_file: str):
 
 
 def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int], temp_csv_filepath: str = 'labels.csv') -> dict:
+    image_path = os.path.join(os.path.dirname(annotations_path), 'JPEGImages')
     for index, annotation_file in enumerate(os.listdir(annotations_path)):
         full_annotation_path = os.path.join(annotations_path, annotation_file)
         dict_ = parse_annotations(full_annotation_path)
 
         if index == 0:
             df = pd.DataFrame({
-                'filename': [dict_['image']] * len(dict_['boxes']),
+                'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
                 'x0': np.array(dict_['boxes'])[:, 0],
                 'y0': np.array(dict_['boxes'])[:, 1],
                 'x1': np.array(dict_['boxes'])[:, 2],
@@ -445,7 +446,7 @@ def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int]
 
         else:
             df_temp = pd.DataFrame({
-                'filename': [dict_['image']] * len(dict_['boxes']),
+                'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
                 'x0': np.array(dict_['boxes'])[:, 0],
                 'y0': np.array(dict_['boxes'])[:, 1],
                 'x1': np.array(dict_['boxes'])[:, 2],
@@ -461,7 +462,6 @@ def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int]
                                                      resize=True)
     os.remove(temp_csv_filepath)
     return optimized_anchor_boxes_params
-
 
 if __name__ == '__main__':
     annotations_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\datasets\test\Annotations'
