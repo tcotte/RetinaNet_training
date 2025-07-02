@@ -1,8 +1,11 @@
 import warnings
+from typing import Tuple
 
 import pandas as pd
 from pandas import read_csv
 from torchvision.models.detection.anchor_utils import AnchorGenerator
+
+from .utils_anchor_boxes.compute_overlap import compute_overlap
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 import os
@@ -13,10 +16,6 @@ from PIL import Image
 
 import sys
 
-sys.path.insert(0,
-                r"C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\picsellia_folder\anchor_optimization")
-
-from utils_anchor_boxes.compute_overlap import compute_overlap
 import xml.etree.ElementTree as ET
 
 # from keras_retinanet.preprocessing.csv_generator import _open_for_csv
@@ -430,7 +429,7 @@ def parse_annotations(xml_file: str):
     return {'boxes': boxes, 'image': image_name}
 
 
-def compute_optimized_anchors(annotations_path: str, temp_csv_filepath: str = 'labels.csv') -> dict:
+def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int], temp_csv_filepath: str = 'labels.csv') -> dict:
     for index, annotation_file in enumerate(os.listdir(annotations_path)):
         full_annotation_path = os.path.join(annotations_path, annotation_file)
         dict_ = parse_annotations(full_annotation_path)
@@ -456,7 +455,10 @@ def compute_optimized_anchors(annotations_path: str, temp_csv_filepath: str = 'l
 
     df.to_csv(temp_csv_filepath, header=None, index=False)
 
-    optimized_anchor_boxes_params = anchors_optimize(annotations=temp_csv_filepath)
+    optimized_anchor_boxes_params = anchors_optimize(annotations=temp_csv_filepath,
+                                                     image_min_side=min(image_size),
+                                                     image_max_side=max(image_size),
+                                                     resize=True)
     os.remove(temp_csv_filepath)
     return optimized_anchor_boxes_params
 

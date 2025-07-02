@@ -17,7 +17,6 @@ from pytorch_warmup import ExponentialWarmup
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from training_image.picsellia_folder.anchor_optimization.anchor_box_optimization import AnchorBoxOptimizer
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
 from model_retinanet import collate_fn, build_retinanet_model, build_model
@@ -25,8 +24,8 @@ from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
 from retinanet_parameters import TrainingParameters
 from trainer import train_model
-from training_image.picsellia_folder.anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
-from training_image.picsellia_folder.utils import read_yaml_file
+from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
+from utils import read_yaml_file
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -305,6 +304,7 @@ if __name__ == "__main__":
 
         anchors_parameters = compute_optimized_anchors(
             annotations_path=os.path.join(dataset_root_folder, 'train', 'Annotations'),
+            image_size=training_parameters.image_size,
             temp_csv_filepath='labels.csv')
 
         training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']

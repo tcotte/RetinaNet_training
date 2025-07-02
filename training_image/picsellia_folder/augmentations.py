@@ -3,9 +3,7 @@ import cv2
 from albumentations import ToTensorV2
 from matplotlib import pyplot as plt
 
-import yaml
-
-from training_image.picsellia_folder.utils import read_yaml_file
+from utils import read_yaml_file
 
 
 def train_augmentation_v1(random_crop, image_size: tuple[int, int]) -> A.Compose:
