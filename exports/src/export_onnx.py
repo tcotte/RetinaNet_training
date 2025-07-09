@@ -7,8 +7,7 @@ from fnmatch import fnmatch
 import torch
 from picsellia import Client
 
-sys.path.append(os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
-print(sys.path)
+sys.path.insert(0, os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
 from training_image.picsellia_folder.model_retinanet import build_retinanet_model
 
 
@@ -36,25 +35,40 @@ def find_files_in_recursive_dirs(root_directory: str, extension: str) -> list[st
 
 
 # https://github.com/pytorch/vision/issues/4395#issuecomment-1086658634
-IMAGE_SIZE = (1024, 1024)
-OUTPUT_PATH = r"/exports/retinanet.onnx"
+output_path = os.path.join(os.getcwd(), r"retinanet.onnx")
 
 if __name__ == '__main__':
     os.environ['TORCHDYNAMO_VERBOSE'] = '1'
 
     client = Client(api_token=os.environ['api_token'], organization_id=os.environ['organization_id'])
-    experiment = client.get_experiment_by_id(id=os.environ['experiment_id'])
 
-    # download experiment Pytorch model
-    model_target_path = f'{experiment.id}-model'
-    if not os.path.isdir(model_target_path):
+    by_experiment: bool = os.environ.get('experiment_id', None) is not None
+
+    if by_experiment:
+        experiment = client.get_experiment_by_id(id=os.environ['experiment_id'])
+
         model_artifact = experiment.get_artifact('model-latest')
+
+    else:
+        model_version = client.get_model_version_by_id(os.environ['model_version_id'])
+        # download experiment Pytorch model
+        model_target_path = f'{model_version.id}-model'
+
+        # todo verify
+        model_artifact = model_version.get_file('model-latest')
+
+        experiment = client.get_experiment_by_id(id=model_version.get_context().experiment_id)
+
+        # download experiment Pytorch model
+        model_target_path = f'{experiment.id}-model'
+
+    if not os.path.isdir(model_target_path):
+
         model_artifact.download(target_path=model_target_path)
 
         zip_file_path = os.path.join(model_target_path, os.listdir(model_target_path)[0])
         extract_zip_file(zip_file_path=zip_file_path,
                          destination_folder=model_target_path)
-
 
         pth_file = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
         destination_pth_file = os.path.join(model_target_path, os.path.basename(pth_file))
@@ -99,10 +113,13 @@ if __name__ == '__main__':
                                       mean_values=normalization_mean_values,
                                       std_values=normalization_std_values,
                                       trained_weights=model_weights_path,
-                                      anchor_boxes_params=anchor_boxes_params)
+                                      anchor_boxes_params=anchor_boxes_params,
+                                      image_size=image_size)
 
     retinanet.eval()
-    retinanet.cuda()
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    retinanet.to(device)
 
     # Image sizes
     original_image_size = image_size
@@ -114,18 +131,23 @@ if __name__ == '__main__':
     dummy_input = torch.randn(1, 3, original_image_size[0], original_image_size[1])
     # dummy_input = preprocess_image(dummy_input)
     image_size = tuple(dummy_input.shape[2:])
-    dummy_input = dummy_input.cuda()
-
+    dummy_input = dummy_input.to(device)
 
     # ONNX export
     torch.onnx.export(
         retinanet,
         dummy_input,
-        OUTPUT_PATH,
+        output_path,
         verbose=True,
         opset_version=13,
         input_names=["images"],
         output_names=['boxes', 'scores', 'labels'],
     )
+
+    onnx_graph_name = 'model_latest_onnx'
+    if by_experiment:
+        experiment.store(name=onnx_graph_name, path=output_path, do_zip=True)
+    else:
+        model_version.store(name=onnx_graph_name, path=output_path, do_zip=True)
 
     # model_version.store("onnx-model-quantized", model_int8_path)

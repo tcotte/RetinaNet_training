@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import partial
 from typing import Union, Tuple, Optional
@@ -11,8 +12,12 @@ from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
 from torchvision.models.detection.retinanet import RetinaNetClassificationHead, _default_anchorgen, RetinaNetHead, \
     RetinaNet
 
-from ScaleNet.pytorch import scalenet
-from retinanet_parameters import FPNExtraBlocks, BackboneType
+try:
+    from ScaleNet.pytorch import scalenet
+except ModuleNotFoundError:
+    logging.info('Scalenet not imported')
+
+from .retinanet_parameters import FPNExtraBlocks, BackboneType
 
 
 def build_retinanet_model(
@@ -71,13 +76,17 @@ def build_retinanet_model(
     )
 
     if trained_weights is not None:
-        model.load_state_dict(torch.load(trained_weights, weights_only=True))
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(trained_weights, weights_only=True))
+        else:
+            model.load_state_dict(torch.load(trained_weights, weights_only=True, map_location=torch.device('cpu')))
 
     return model
 
 
 def build_model(
         score_threshold: float,
+        use_imageNet_pretrained_weights: bool,
         iou_threshold: float,
         image_size: Tuple[int, int],
         max_det: int = 300,
@@ -95,7 +104,8 @@ def build_model(
         extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> RetinaNet:
 
     backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
-                                  extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3)
+                                  extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3,
+                                  use_imageNet_pretrained_weights=use_imageNet_pretrained_weights)
 
     if anchor_boxes_params is not None:
         anchor_generator = AnchorGenerator(**{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
@@ -144,7 +154,7 @@ def build_model(
 
 
 def build_scalenet_model(size: int, structures_path: str) -> nn.Module:
-    resNet_sizes = [50, 102, 152]
+    resNet_sizes = [50, 101, 152]
     if size in resNet_sizes:
         kwargs = {
             'structure_path': os.path.join(structures_path, f'scalenet{size}.json'),
@@ -164,14 +174,14 @@ def build_resnet_model(size: int, pretrained: bool = False) -> nn.Module:
         raise ValueError(f"ResNet model size {size} is not supported")
 
 
-def build_backbone(backbone_type: BackboneType, size: int = 50, add_P2_to_FPN: bool = False,
+def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights: bool, size: int = 50, add_P2_to_FPN: bool = False,
                    extra_blocks: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool,
                    trainable_backbone_layers: int = 3) -> _resnet_fpn_extractor:
     if backbone_type == BackboneType.ScaleNet:
         backbone = build_scalenet_model(size=size, structures_path='ScaleNet/structures')
 
     else:
-        backbone = build_resnet_model(size=size)
+        backbone = build_resnet_model(size=size, pretrained=use_imageNet_pretrained_weights)
 
     # is_trained = False
     # trainable_backbone_layers = None

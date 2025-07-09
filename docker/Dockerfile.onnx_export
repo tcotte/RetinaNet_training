@@ -9,13 +9,13 @@ RUN pip3 install onnxruntime
 RUN pip3 install imutils
 
 
-COPY utils /src/utils
-COPY post_processing/src /src
+COPY training_image /src/training_image
+COPY exports/src /src/
 
 RUN chown -R 42420:42420 /src
-RUN mkdir -p ./models && chmod 777 ./models
-RUN mkdir -p ./dataset && chmod 777 ./dataset
+# RUN mkdir -p ./models && chmod 777 ./models
+# RUN mkdir -p ./dataset && chmod 777 ./dataset
 RUN chmod 777 ./
 
-CMD ["/src/main.py"]
+CMD ["/src/export_onnx.py"]
 ENTRYPOINT ["python3.9"]

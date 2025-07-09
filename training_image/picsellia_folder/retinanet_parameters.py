@@ -140,6 +140,7 @@ class TrainingParameters(BaseModel):
     fg_iou_thresh: float = 0.5
     bg_iou_thresh: float = 0.4
     backbone: BackboneParameters = BackboneParameters()
+    version: int= 1
 
     # def transform_id_to_str(cls, value) -> str:
     #     return str(value)

@@ -312,7 +312,7 @@ if __name__ == "__main__":
 
 
     # Build model
-    if training_parameters.coco_pretrained_weights:
+    if training_parameters.backbone_layers_nb == 50 or training_parameters.version == 2:
         model = build_retinanet_model(num_classes=len(class_mapping),
                                       use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
                                       score_threshold=training_parameters.confidence_threshold,
@@ -328,6 +328,7 @@ if __name__ == "__main__":
 
     else:
         model = build_model(num_classes=len(class_mapping),
+                            use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
                             score_threshold=training_parameters.confidence_threshold,
                             iou_threshold=training_parameters.iou_threshold,
                             unfrozen_layers=training_parameters.unfreeze,
