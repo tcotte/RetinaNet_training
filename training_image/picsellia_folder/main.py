@@ -264,9 +264,16 @@ if __name__ == "__main__":
 
     # TODO change name of learning_rate parameter
     if 'learning_rate' in parameters.keys():
-        total_configs['learning_rate']['initial_lr'] = parameters['learning_rate']
+        lr0 = parameters['learning_rate']
+        del total_configs['learning_rate']
 
     training_parameters = TrainingParameters(**total_configs)
+
+    #todo remove it
+    training_parameters.batch_size = 1
+    if 'learning_rate' in parameters.keys():
+        training_parameters.learning_rate.initial_lr = parameters['learning_rate']
+
     training_parameters.device = device.type
     if device.type == 'cuda':
         training_parameters.device_name = torch.cuda.get_device_name()
@@ -312,7 +319,7 @@ if __name__ == "__main__":
 
 
     # Build model
-    if training_parameters.backbone_layers_nb == 50 or training_parameters.version == 2:
+    if training_parameters.backbone.backbone_layers_nb == 50 or training_parameters.version == 2:
         model = build_retinanet_model(num_classes=len(class_mapping),
                                       use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
                                       score_threshold=training_parameters.confidence_threshold,

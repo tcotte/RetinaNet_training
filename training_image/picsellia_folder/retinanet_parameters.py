@@ -225,10 +225,6 @@ if __name__ == '__main__':
 
     training_parameters = TrainingParameters(
         **{'single_class': 'True',
-           'learning_rate': {'decay': {
-               'step_size': 100,
-               'gamma': 0.1
-           }},
            'iou_threshold': 0.2,
            'coco_pretrained_weights': 'true',
            # 'image_size': 2,
@@ -259,6 +255,8 @@ if __name__ == '__main__':
     print(training_parameters.anchor_boxes)
     print(training_parameters.fg_iou_thresh)
     print(training_parameters.learning_rate)
+    print(training_parameters.anchor_boxes)
+
 
 
 

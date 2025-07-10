@@ -17,7 +17,10 @@ try:
 except ModuleNotFoundError:
     logging.info('Scalenet not imported')
 
-from .retinanet_parameters import FPNExtraBlocks, BackboneType
+try:
+    from retinanet_parameters import FPNExtraBlocks, BackboneType
+except (ModuleNotFoundError, ImportError):
+    from .retinanet_parameters import FPNExtraBlocks, BackboneType
 
 
 def build_retinanet_model(
@@ -187,7 +190,7 @@ def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights:
     # trainable_backbone_layers = None
     # trainable_backbone_layers = _validate_trainable_layers(is_trained, trainable_backbone_layers, 5, 3)
 
-    if not add_P2_to_FPN:
+    if add_P2_to_FPN:
         returned_layers = [2, 3, 4]
     else:
         returned_layers = [1, 2, 3, 4]
@@ -198,7 +201,7 @@ def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights:
             if extra_blocks == FPNExtraBlocks.LastLevelMaxPool:
                 torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
             elif extra_blocks == FPNExtraBlocks.LastLevelP6P7:
-                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(2048, 256)
+                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(dict(backbone.named_modules())['fc'].in_features, 256)
 
             else:
                 raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks))

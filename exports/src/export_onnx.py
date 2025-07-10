@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import sys
@@ -10,6 +11,8 @@ from picsellia import Client
 sys.path.insert(0, os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
 from training_image.picsellia_folder.model_retinanet import build_retinanet_model
 
+logging.basicConfig(format="%(message)s", level=logging.INFO)
+logging.getLogger().setLevel(logging.INFO)
 
 def extract_zip_file(zip_file_path: str, destination_folder: str) -> None:
     """
@@ -50,9 +53,11 @@ if __name__ == '__main__':
         model_artifact = experiment.get_artifact('model-latest')
 
     else:
-        model_version = client.get_model_version_by_id(os.environ['model_version_id'])
-        # download experiment Pytorch model
-        model_target_path = f'{model_version.id}-model'
+        job_id = os.environ["job_id"]
+        job = client.get_job_by_id(job_id)
+        context = job.sync()
+        model_version_id = context['model_version_processing_job']['input_model_version_id']
+        model_version = client.get_model_version_by_id(model_version_id)
 
         # todo verify
         model_artifact = model_version.get_file('model-latest')
@@ -60,31 +65,31 @@ if __name__ == '__main__':
         experiment = client.get_experiment_by_id(id=model_version.get_context().experiment_id)
 
         # download experiment Pytorch model
-        model_target_path = f'{experiment.id}-model'
+        model_target_path = os.path.join(os.getcwd(), f'models')
 
-    if not os.path.isdir(model_target_path):
+    # if not os.path.isdir(model_target_path):
 
-        model_artifact.download(target_path=model_target_path)
+    model_artifact.download(target_path=model_target_path)
 
-        zip_file_path = os.path.join(model_target_path, os.listdir(model_target_path)[0])
-        extract_zip_file(zip_file_path=zip_file_path,
-                         destination_folder=model_target_path)
+    zip_file_path = os.path.join(model_target_path, os.listdir(model_target_path)[0])
+    extract_zip_file(zip_file_path=zip_file_path,
+                     destination_folder=model_target_path)
 
-        pth_file = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
-        destination_pth_file = os.path.join(model_target_path, os.path.basename(pth_file))
-        os.rename(pth_file, destination_pth_file)
+    pth_file = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
+    destination_pth_file = os.path.join(model_target_path, os.path.basename(pth_file))
+    os.rename(pth_file, destination_pth_file)
 
-        # clean folder
-        subfolders = [f.path for f in os.scandir(model_target_path) if f.is_dir()]
-        [shutil.rmtree(dir_) for dir_ in subfolders]
-        os.remove(zip_file_path)
+    # clean folder
+    subfolders = [f.path for f in os.scandir(model_target_path) if f.is_dir()]
+    [shutil.rmtree(dir_) for dir_ in subfolders]
+    os.remove(zip_file_path)
 
-        model_weights_path = destination_pth_file
+    model_weights_path = destination_pth_file
 
-    else:
-        print(f'Directory {model_target_path} already exists')
-
-        model_weights_path = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
+    # else:
+    #     print(f'Directory {model_target_path} already exists')
+    #
+    #     model_weights_path = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
 
     # parameters
     experiment_parameters = experiment.get_log('All parameters').data
@@ -141,13 +146,21 @@ if __name__ == '__main__':
         verbose=True,
         opset_version=13,
         input_names=["images"],
-        output_names=['boxes', 'scores', 'labels'],
     )
 
     onnx_graph_name = 'model_latest_onnx'
+
+    logging.info("Try to store model")
     if by_experiment:
         experiment.store(name=onnx_graph_name, path=output_path, do_zip=True)
     else:
-        model_version.store(name=onnx_graph_name, path=output_path, do_zip=True)
+        logging.info("Saving model")
+        try:
+            model_version.store(name=onnx_graph_name, path=output_path, replace=True)
+            logging.info("Successfully stored model")
+            job.status()
+        except Exception as e:
+            print(str(e))
+            logging.error(str(e))
 
     # model_version.store("onnx-model-quantized", model_int8_path)
