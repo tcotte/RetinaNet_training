@@ -1,22 +1,21 @@
 import os
-from enum import Enum, IntEnum
 from functools import partial
-from typing import Optional
+
 import albumentations as A
 import cv2
 import torch
 import torchvision
-import yaml
 from albumentations import ToTensorV2
 from torch import nn
-from torchvision.models.detection import RetinaNet
-from torchvision.models import resnet50
+from torchvision.models import resnext50_32x4d
 from torchvision.models.detection.anchor_utils import AnchorGenerator
-from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
-from torchvision.models.detection.retinanet import _default_anchorgen, RetinaNetHead
-from torchvision.ops.feature_pyramid_network import LastLevelP6P7, LastLevelMaxPool
+from torchvision.models.detection.backbone_utils import _validate_trainable_layers, _resnet_fpn_extractor
+from torchvision.models.detection.retinanet import RetinaNetHead, _default_anchorgen, RetinaNet
+from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 from ScaleNet.pytorch import scalenet
+import sys
+sys.path.append('training_image/picsellia_folder')
 from training_image.picsellia_folder.dataset import PascalVOCDataset
 from training_image.picsellia_folder.model_retinanet import collate_fn, build_model
 from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
@@ -50,7 +49,7 @@ def build_resnet_model(size: int, pretrained: bool = False) -> nn.Module:
 
 if __name__ == "__main__":
     image_size = (128, 128)
-    path_root = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\datasets'
+    path_root = r'training_image/datasets'
     single_cls = True
     train_transform = A.Compose([
         A.RandomCrop(*image_size),
@@ -106,24 +105,30 @@ if __name__ == "__main__":
     #                                 size=50)
     # backbone = build_scalenet_model((structures_path='ScaleNet/structures', )
 
-    config = read_yaml_file(file_path=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\config.yaml')
+    config = read_yaml_file(file_path=r'training_image/picsellia_folder/config.yaml')
     training_parameters = TrainingParameters(**config)
 
-    # backbone.load_state_dict(torch.load(torchvision.models.detection.RetinaNet_ResNet50_FPN_V2_Weights))
-    # image = torch.zeros((1, 3, 512, 512))
-    # backbone = scalenet_resnet_50(image)
-
-    # backbone = _resnet_fpn_extractor(
-    #     backbone, trainable_backbone_layers, returned_layers=None, extra_blocks=LastLevelP6P7(2048, 256)
-    # )
+    # backbone = resnext50_32x4d(pretrained=False)
     # backbone_fpn = _resnet_fpn_extractor(
     #     backbone, trainable_backbone_layers, returned_layers=[1, 2, 3, 4], extra_blocks=LastLevelMaxPool()
     # )
     #
-    # print(backbone)
-
+    #
+    # # backbone.load_state_dict(torch.load(torchvision.models.detection.RetinaNet_ResNet50_FPN_V2_Weights))
+    # # image = torch.zeros((1, 3, 512, 512))
+    # # backbone = scalenet_resnet_50(image)
+    #
+    # # backbone = _resnet_fpn_extractor(
+    # #     backbone, trainable_backbone_layers, returned_layers=None, extra_blocks=LastLevelP6P7(2048, 256)
+    # # )
+    # # backbone_fpn = _resnet_fpn_extractor(
+    # #     backbone, trainable_backbone_layers, returned_layers=[1, 2, 3, 4], extra_blocks=LastLevelMaxPool()
+    # # )
+    # #
+    # # print(backbone)
+    #
     # anchor_generator = _default_anchorgen()
-    # anchor_generator = AnchorGenerator(**training_parameters.anchor_boxes.dict())
+    # # anchor_generator = AnchorGenerator()
     #
     # head = RetinaNetHead(
     #     backbone_fpn.out_channels,
@@ -132,6 +137,11 @@ if __name__ == "__main__":
     #     norm_layer=partial(nn.GroupNorm, 32),
     # )
     # head.regression_head._loss_type = "giou"
+    #
+    # model = RetinaNet(backbone=backbone_fpn,
+    #                   num_classes=num_classes,
+    #                   anchor_generator=anchor_generator,
+    #                   head=head)
 
     # model = RetinaNet(backbone=backbone_fpn,
     #                   num_classes=num_classes,
@@ -154,6 +164,8 @@ if __name__ == "__main__":
                         mean_values=training_parameters.augmentations.normalization.mean,
                         std_values=training_parameters.augmentations.normalization.std,
                         anchor_boxes_params=None,
+                        image_size=(1024, 1024),
+                        use_imageNet_pretrained_weights=True,
                         # anchor_boxes_params=training_parameters.anchor_boxes,
                         fg_iou_thresh=training_parameters.fg_iou_thresh,
                         bg_iou_thresh=training_parameters.bg_iou_thresh,
@@ -162,6 +174,8 @@ if __name__ == "__main__":
                         add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
                         extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN
                         )
+
+    print(model)
 
     model.train()
     image = torch.zeros((1, 3, image_size[0], image_size[1]))

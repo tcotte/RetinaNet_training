@@ -176,12 +176,27 @@ def build_resnet_model(size: int, pretrained: bool = False) -> nn.Module:
     else:
         raise ValueError(f"ResNet model size {size} is not supported")
 
+def build_resnext_model(size: int, pretrained: bool = False) -> nn.Module:
+    resNeXt_sizes = [50, 101]
+    if size in resNeXt_sizes:
+        if size == 50:
+            return torchvision.models.resnext50_32x4d(pretrained=pretrained)
+
+        else:
+            return torchvision.models.resnext101_32x8d(pretrained=pretrained)
+
+    else:
+        raise ValueError(f"ResNeXt model size {size} is not supported")
+
 
 def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights: bool, size: int = 50, add_P2_to_FPN: bool = False,
                    extra_blocks: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool,
                    trainable_backbone_layers: int = 3) -> _resnet_fpn_extractor:
     if backbone_type == BackboneType.ScaleNet:
         backbone = build_scalenet_model(size=size, structures_path='ScaleNet/structures')
+
+    elif backbone_type.value == 'ResNeXt':
+        backbone = build_resnext_model(size=size, pretrained=use_imageNet_pretrained_weights)
 
     else:
         backbone = build_resnet_model(size=size, pretrained=use_imageNet_pretrained_weights)

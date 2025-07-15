@@ -177,5 +177,5 @@ training_image/datasets
 inferences/dataset
 inferences/models
 training_image/picsellia_folder/labels.csv
-training_image/picsellia_folder/aug_hyp.yaml
+model_deployments/config_files/aug_hyp.yaml
 training_image/picsellia_folder/*.yaml

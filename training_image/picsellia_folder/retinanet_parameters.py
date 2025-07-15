@@ -12,6 +12,7 @@ import albumentations as A
 class BackboneType(Enum):
     ResNet = 'ResNet'
     ScaleNet = 'ScaleNet'
+    ResNeXt = 'ResNeXt'
 
 
 class FPNExtraBlocks(Enum):

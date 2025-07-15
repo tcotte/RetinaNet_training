@@ -7,6 +7,7 @@ from fnmatch import fnmatch
 
 import torch
 from picsellia import Client
+from picsellia.types.enums import JobRunStatus
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
 from training_image.picsellia_folder.model_retinanet import build_retinanet_model
@@ -38,7 +39,7 @@ def find_files_in_recursive_dirs(root_directory: str, extension: str) -> list[st
 
 
 # https://github.com/pytorch/vision/issues/4395#issuecomment-1086658634
-output_path = os.path.join(os.getcwd(), r"retinanet.onnx")
+output_path = os.path.join(os.getcwd(), r"models/retinanet.onnx")
 
 if __name__ == '__main__':
     os.environ['TORCHDYNAMO_VERBOSE'] = '1'
@@ -54,6 +55,7 @@ if __name__ == '__main__':
 
     else:
         job_id = os.environ["job_id"]
+        logging.info(f"Job ID: {job_id}")
         job = client.get_job_by_id(job_id)
         context = job.sync()
         model_version_id = context['model_version_processing_job']['input_model_version_id']
@@ -146,6 +148,7 @@ if __name__ == '__main__':
         verbose=True,
         opset_version=13,
         input_names=["images"],
+        output_names=['boxes', 'scores', 'labels']
     )
 
     onnx_graph_name = 'model_latest_onnx'
@@ -158,9 +161,10 @@ if __name__ == '__main__':
         try:
             model_version.store(name=onnx_graph_name, path=output_path, replace=True)
             logging.info("Successfully stored model")
-            job.status()
+            job.update_job_run_with_status(JobRunStatus.SUCCEEDED)
         except Exception as e:
             print(str(e))
             logging.error(str(e))
+            job.update_job_run_with_status(JobRunStatus.FAILED)
 
     # model_version.store("onnx-model-quantized", model_int8_path)
