@@ -26,6 +26,7 @@ from tools.retinanet_parameters import TrainingParameters
 from trainer import train_model
 from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
 from utils import read_yaml_file
+from augmentations import train_augmentation_v3, train_augmentation_v2, train_augmentation_v1
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
