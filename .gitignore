@@ -179,3 +179,7 @@ inferences/models
 training_image/picsellia_folder/labels.csv
 model_deployments/config_files/aug_hyp.yaml
 training_image/picsellia_folder/*.yaml
+*/models
+*/dataset
+models/
+*/tmp/

@@ -1,5 +1,4 @@
 import os
-from functools import partial
 
 import albumentations as A
 import cv2
@@ -7,18 +6,14 @@ import torch
 import torchvision
 from albumentations import ToTensorV2
 from torch import nn
-from torchvision.models import resnext50_32x4d
-from torchvision.models.detection.anchor_utils import AnchorGenerator
-from torchvision.models.detection.backbone_utils import _validate_trainable_layers, _resnet_fpn_extractor
-from torchvision.models.detection.retinanet import RetinaNetHead, _default_anchorgen, RetinaNet
-from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
+from torchvision.models.detection.backbone_utils import _validate_trainable_layers
 
 from ScaleNet.pytorch import scalenet
 import sys
 sys.path.append('training_image/picsellia_folder')
 from training_image.picsellia_folder.dataset import PascalVOCDataset
-from training_image.picsellia_folder.model_retinanet import collate_fn, build_model
-from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
+from tools.model_retinanet import collate_fn, build_model
+from tools.retinanet_parameters import TrainingParameters
 from training_image.picsellia_folder.utils import read_yaml_file
 
 

@@ -1,25 +1,16 @@
 import os
-from enum import Enum, IntEnum
-from functools import partial
-from typing import Optional
 import albumentations as A
 import cv2
 import torch
 import torchvision
-import yaml
 from albumentations import ToTensorV2
 from torch import nn
-from torchvision.models.detection import RetinaNet
-from torchvision.models import resnet50
-from torchvision.models.detection.anchor_utils import AnchorGenerator
-from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, _validate_trainable_layers
-from torchvision.models.detection.retinanet import _default_anchorgen, RetinaNetHead
-from torchvision.ops.feature_pyramid_network import LastLevelP6P7, LastLevelMaxPool
+from torchvision.models.detection.backbone_utils import _validate_trainable_layers
 
 from ScaleNet.pytorch import scalenet
 from training_image.picsellia_folder.dataset import PascalVOCDataset
-from training_image.picsellia_folder.model_retinanet import collate_fn, build_model
-from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
+from tools.model_retinanet import collate_fn, build_model
+from tools.retinanet_parameters import TrainingParameters
 from training_image.picsellia_folder.utils import read_yaml_file
 
 

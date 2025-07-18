@@ -3,8 +3,10 @@ import cv2
 from albumentations import ToTensorV2
 from matplotlib import pyplot as plt
 
-from utils import read_yaml_file
-
+try:
+    from utils import read_yaml_file
+except ModuleNotFoundError:
+    from .utils import read_yaml_file
 
 def train_augmentation_v1(random_crop, image_size: tuple[int, int]) -> A.Compose:
     return A.Compose([
@@ -155,6 +157,7 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int], **kwargs) ->
         ]),
 
         # Mixup(mixup) -> not implemented -> p =0
+        # A.MixUp(),
         # CutMix (cutmix) -> not implemented -> p =0
 
         # Random Erasing (erasing) -> seems like it is useful only for classification

@@ -1,6 +1,6 @@
 import os
+import shutil
 import time
-from torchmetrics.detection.iou import IntersectionOverUnion
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,11 +10,14 @@ from picsellia import Client
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 import sys
+
+from exports.src.export_onnx import download_model_version
+
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), r'training_image\picsellia_folder'))
 from training_image.picsellia_folder.dataset import PascalVOCDataset
-from training_image.picsellia_folder.main import download_datasets, download_annotations
-from training_image.picsellia_folder.model_retinanet import build_retinanet_model, collate_fn
-from training_image.picsellia_folder.retinanet_parameters import TrainingParameters
+from training_image.picsellia_folder.main import download_annotations
+from tools.model_retinanet import collate_fn, build_model
+from tools.retinanet_parameters import TrainingParameters, BackboneType, FPNExtraBlocks, AnchorBoxesParameters
 import albumentations as A
 
 from training_image.picsellia_folder.utils import apply_postprocess_on_predictions
@@ -34,9 +37,10 @@ def download_dataset_version(root, alias, experiment):
     download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
 
 
+
 if __name__ == '__main__':
     dataset_root_folder = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset'
-    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\exports\0197a212-cc33-78a1-8d93-ed92b524f42b-model\latest.pth'
+    # model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\models\latest.pth'
 
     # Picsell.ia connection
     api_token = os.environ["api_token"]
@@ -45,7 +49,13 @@ if __name__ == '__main__':
     # Get experiment
     experiment = client.get_experiment_by_id(id=os.environ["experiment_id"])
 
-    print(experiment.get_log('All parameters'))
+
+    model_target_path: str = 'tmp/'
+    shutil.rmtree(model_target_path, ignore_errors=True)
+    # experiment.get_artifact(name='model-latest').download(target_path=model_target_path)
+
+    model_weights_path = download_model_version(model_artifact=experiment.get_artifact('model-latest'))
+    # model_weights_path = 'tmp/latest.pth'
 
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -56,7 +66,7 @@ if __name__ == '__main__':
     if not os.path.exists(dataset_root_folder):
         download_dataset_version(root=dataset_root_folder, alias='test', experiment=experiment)
 
-    base_model = experiment.get_base_model_version()
+    # base_model = experiment.get_base_model_version()
 
     # Download weights
     # download_experiment_file(base_model=base_model, experiment_file='weights')
@@ -68,26 +78,40 @@ if __name__ == '__main__':
     #     total_configs['learning_rate']['initial_lr'] = parameters['learning_rate']
 
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
+    if len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1:
+        training_parameters.anchor_boxes = AnchorBoxesParameters(
+            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
+                [tuple(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) for i in range(5)]))
+    elif len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 5:
+        training_parameters.anchor_boxes = AnchorBoxesParameters(
+            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
+                experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
+
     training_parameters.device = device.type
     if device.type == 'cuda':
         training_parameters.device_name = torch.cuda.get_device_name()
 
     # inferences
-    model = build_retinanet_model(num_classes=2,
-                                  use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
-                                  trained_weights=model_weights_path,
-                                  score_threshold=0.2,
-                                  # score_threshold=training_parameters.confidence_threshold,
-                                  iou_threshold=0.2,
-                                  unfrozen_layers=training_parameters.unfreeze,
-                                  mean_values=experiment.get_log('All parameters').data[
-                                      'augmentations_normalization_mean'],
-                                  std_values=experiment.get_log('All parameters').data[
-                                      'augmentations_normalization_std'],
-                                  anchor_boxes_params=training_parameters.anchor_boxes,
-                                  fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                  bg_iou_thresh=training_parameters.bg_iou_thresh
-                                  )
+    model = build_model(num_classes=len(experiment.get_log('LabelMap').data),
+                        backbone_type=BackboneType[experiment.get_log('All parameters').data['backbone_backbone_type']],
+                        add_P2_to_FPN=not experiment.get_log('All parameters').data['backbone_add_P2_to_FPN'],
+                        extra_blocks_FPN=FPNExtraBlocks[experiment.get_log('All parameters').data['backbone_extra_blocks_FPN']],
+                        backbone_layers_nb=experiment.get_log('All parameters').data['backbone_backbone_layers_nb'],
+                        use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
+                        trained_weights=model_weights_path,
+                        score_threshold=0.2,
+                        image_size=training_parameters.image_size,
+                        # score_threshold=training_parameters.confidence_threshold,
+                        iou_threshold=0.2,
+                        unfrozen_layers=training_parameters.unfreeze,
+                        mean_values=experiment.get_log('All parameters').data[
+                          'augmentations_normalization_mean'],
+                        std_values=experiment.get_log('All parameters').data[
+                          'augmentations_normalization_std'],
+                        anchor_boxes_params=training_parameters.anchor_boxes,
+                        fg_iou_thresh=training_parameters.fg_iou_thresh,
+                        bg_iou_thresh=training_parameters.bg_iou_thresh)
+
     model.anchor_generator = AnchorGenerator(
         sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
         aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
@@ -97,14 +121,13 @@ if __name__ == '__main__':
     model.eval()
 
     # dataset
-    random_crop = False
     image_size = (1024, 1024)
     single_cls = True
     num_workers = 8
     batch_size = 2
 
     valid_transform = A.Compose([
-        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
+        A.Resize(*image_size),
         ToTensorV2()
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
@@ -136,7 +159,7 @@ if __name__ == '__main__':
 
     for images, targets in val_data_loader:
         images = list(image.to(device) for image in images)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        # targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         start_prediction = time.time()
         with torch.no_grad():

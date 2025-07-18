@@ -12,10 +12,12 @@ from matplotlib import pyplot as plt
 from picsellia import Client
 import sys
 
-sys.path.append(r'/training_image/picsellia_folder')
+from torchmetrics.detection import MeanAveragePrecision
+
+sys.path.insert(0, os.path.join(os.getcwd(), r'training_image\picsellia_folder'))
 
 from training_image.picsellia_folder.dataset import PascalVOCDataset
-from training_image.picsellia_folder.model_retinanet import collate_fn, build_retinanet_model
+from tools.model_retinanet import collate_fn, build_retinanet_model
 
 '''
 We have to get a coherent set of libraries (Pytorch / CUDNN / onnxruntime) to run ONNX with CUDA:
@@ -51,7 +53,7 @@ def to_numpy(tensor):
 
 
 ONNX_MODEL_PATH: typing.Final[str] = (
-    r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\exports\retinanet.onnx')
+    r'exports/models/8015ef96-006d-49cf-a7b0-66313f83d3ba-retinanet.onnx')
 
 if __name__ == '__main__':
     # torch.backends.cudnn.benchmark = True
@@ -83,16 +85,17 @@ if __name__ == '__main__':
     normalization_std_values = experiment_parameters['augmentations_normalization_std']
 
     # load pt model
-    model_weights_path = r'/exports/0197a212-cc33-78a1-8d93-ed92b524f42b-model/latest.pth'
+    model_weights_path = r'exports/models/8015ef96-006d-49cf-a7b0-66313f83d3ba-retinanet.pth'
     anchor_boxes_params = {
         'sizes': experiment_parameters['anchor_boxes_sizes'],
         'aspect_ratios': experiment_parameters['anchor_boxes_aspect_ratios']
     }
 
     torch_model = build_retinanet_model(num_classes=len(experiment.get_log('LabelMap').data),
+                                        image_size=image_size,
                                         use_COCO_pretrained_weights=False,
-                                        score_threshold=0.3,
-                                        iou_threshold=0.3,
+                                        score_threshold=0.2,
+                                        iou_threshold=0.2,
                                         unfrozen_layers=experiment_parameters['unfreeze'],
                                         mean_values=normalization_mean_values,
                                         std_values=normalization_std_values,
@@ -118,9 +121,19 @@ if __name__ == '__main__':
         collate_fn=collate_fn
     )
 
+    metric_torch_model = MeanAveragePrecision(iou_type="bbox", extended_summary=True, class_metrics=True,
+                                              max_detection_thresholds=[3000, 5000, 10000])
+    metric_onnx_model = MeanAveragePrecision(iou_type="bbox", extended_summary=True, class_metrics=True,
+                                              max_detection_thresholds=[3000, 5000, 10000])
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     # compute ONNX Runtime output prediction
     nb_img = 0
     for images, targets in data_loader:
+
+        targets_gpu = [{k: v.to(device=device, non_blocking=True) for k, v in target.items()} for target in targets]
+
         x = torch.unsqueeze(images[0], dim=0)
         x_copy = torch.tensor(x)
 
@@ -150,14 +163,11 @@ if __name__ == '__main__':
 
         image = torch.squeeze(x).cpu().numpy()
         image = np.transpose(image, (1, 2, 0))
+
         for i in ort_predictions:
             cv2.rectangle(image, (int(i[0]), int(i[1])), (int(i[2]), int(i[3])), (255, 0, 0), 2)
 
         ax[0].imshow(image)
-
-
-
-
 
         image = torch.squeeze(x).cpu().numpy()
         image = np.transpose(image, (1, 2, 0))
@@ -176,4 +186,29 @@ if __name__ == '__main__':
                         f'Number of predictions: {len(boxes)}')
 
         nb_img += 1
-        plt.savefig(f'output_inference/inference_{nb_img}.png')
+
+        plt.savefig(rf'C:\Users\tristan_cotte\SGS\FR-ST-Performance Opérationnelle - Documents\06- R&D Automation\01 - Projets par Site\04 - Brest\05 - Microbiologie classique\07- AI models\RetinaNet\Inferences_CA\output_inference\inference_{nb_img}.png')
+
+        metric_torch_model.update([torch_outputs], targets_gpu)
+
+        onnx_prediction = {'boxes': torch.Tensor(ort_predictions[:, :4]).cuda(),
+                           'labels': torch.ones(len(ort_predictions)).int().cuda(),
+                           'scores': torch.Tensor(ort_predictions[:, -1]).cuda()}
+        metric_onnx_model.update([onnx_prediction], targets_gpu)
+
+
+    torch_model_validation_metrics = metric_torch_model.compute()
+    print("Torch model: \n"
+          f"- Accuracies: 'mAP' {float(torch_model_validation_metrics['map']):.3} / "
+          f"'mAP[50]': {float(torch_model_validation_metrics['map_50']):.3} / "
+          f"'mAP[75]': {float(torch_model_validation_metrics['map_75']):.3} /"
+          f"'Precision': {float(torch_model_validation_metrics['precision'][0][25][0][0][-1]):.3} / "
+          f"'Recall': {float(torch_model_validation_metrics['recall'][0][0][0][-1]):.3} ")
+
+    onnx_model_validation_metrics = metric_onnx_model.compute()
+    print("ONNX model: \n"
+          f"- Accuracies: 'mAP' {float(onnx_model_validation_metrics['map']):.3} / "
+          f"'mAP[50]': {float(onnx_model_validation_metrics['map_50']):.3} / "
+          f"'mAP[75]': {float(onnx_model_validation_metrics['map_75']):.3} /"
+          f"'Precision': {float(onnx_model_validation_metrics['precision'][0][25][0][0][-1]):.3} / "
+          f"'Recall': {float(onnx_model_validation_metrics['recall'][0][0][0][-1]):.3} ")

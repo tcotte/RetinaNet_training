@@ -10,15 +10,15 @@ from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 
 from dataset import PascalVOCTestDataset
-from model_retinanet import build_retinanet_model, collate_fn
-from retinanet_parameters import TrainingParameters
+from tools.model_retinanet import build_retinanet_model, collate_fn
+from tools.retinanet_parameters import TrainingParameters
 
 
 def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:
     """
     Plot precision-recall curve depending on validation metrics.
     :param validation_metrics: validation COCO metrics at the end of the training
-    :param recall_thresholds: recall thresholds used to compute the validation metric
+    :param recall_thresholds: recall thresholds used to compute the validation metric_torch_model
     :return: plot of the precision-recall curve
     """
     recall_values = np.array(recall_thresholds)

@@ -19,10 +19,10 @@ from torch.utils.data import DataLoader
 
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
-from model_retinanet import collate_fn, build_retinanet_model, build_model
+from tools.model_retinanet import collate_fn, build_retinanet_model, build_model
 from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
-from retinanet_parameters import TrainingParameters
+from tools.retinanet_parameters import TrainingParameters
 from trainer import train_model
 from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
 from utils import read_yaml_file
@@ -134,7 +134,6 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
                        augmentation_version: int,
                        random_crop: bool = False, augmentation_hyperparams_file: typing.Optional[str] = None) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
-    from augmentations import train_augmentation_v1, train_augmentation_v2, train_augmentation_v3
     if augmentation_version > 2:
         if augmentation_hyperparams_file is not None:
             augmentation_params = read_yaml_file(file_path=augmentation_hyperparams_file)
@@ -269,8 +268,6 @@ if __name__ == "__main__":
 
     training_parameters = TrainingParameters(**total_configs)
 
-    #todo remove it
-    training_parameters.batch_size = 1
     if 'learning_rate' in parameters.keys():
         training_parameters.learning_rate.initial_lr = parameters['learning_rate']
 

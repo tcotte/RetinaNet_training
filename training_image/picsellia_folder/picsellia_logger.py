@@ -74,7 +74,7 @@ class PicselliaLogger:
 
     def on_train_begin(self, params, class_mapping):
         self._experiment.log(name='All parameters', type=LogType.TABLE, data=params)
-        self._experiment.log(name='LabelMap', type=LogType.TABLE,
+        self._experiment.log(name='LabelMap', type=LogType.LABELMAP,
                              data={str(key): value for key, value in class_mapping.items()})
 
         print(f"Successfully logged to Picsellia\n You can follow experiment here: "

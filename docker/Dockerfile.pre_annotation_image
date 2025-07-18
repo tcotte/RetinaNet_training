@@ -1,0 +1,27 @@
+FROM  picsellia/cuda:12.9.1-cudnn-ubuntu24.04-python3.12
+
+RUN  rm /usr/lib/python3.12/EXTERNALLY-MANAGED
+
+RUN pip3 install picsellia
+RUN pip3 install torch torchvision
+RUN pip3 install albumentations
+RUN pip3 install pycocotools
+RUN pip3 install onnx==1.18.0
+RUN pip3 install onnxruntime-gpu==1.19.2
+RUN pip3 install imutils
+
+
+COPY pre_annotation_image /src/pre_annotation_image
+COPY tools /src/tools
+
+ENV PYTHONPATH="${PYTHONPATH}:/src"
+
+RUN chown -R 42420:42420 /src
+RUN mkdir -p ./models && chmod 777 ./models
+# RUN mkdir -p ./dataset && chmod 777 ./dataset
+RUN chmod 777 ./
+
+
+
+CMD ["src/pre_annotation_image/launch_processing.py"]
+ENTRYPOINT ["python3.12"]

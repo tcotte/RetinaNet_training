@@ -1,3 +1,4 @@
+import enum
 import logging
 import os
 from functools import partial
@@ -20,7 +21,7 @@ except ModuleNotFoundError:
 try:
     from retinanet_parameters import FPNExtraBlocks, BackboneType
 except (ModuleNotFoundError, ImportError):
-    from .retinanet_parameters import FPNExtraBlocks, BackboneType
+    from tools.retinanet_parameters import FPNExtraBlocks, BackboneType
 
 
 def build_retinanet_model(
@@ -217,6 +218,16 @@ def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights:
                 torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
             elif extra_blocks == FPNExtraBlocks.LastLevelP6P7:
                 torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(dict(backbone.named_modules())['fc'].in_features, 256)
+
+            else:
+                raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks))
+
+        elif isinstance(extra_blocks, enum.Enum):
+            if extra_blocks.value == 'LastLevelMaxPool':
+                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
+            elif extra_blocks.value == 'LastLevelP6P7':
+                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(
+                    dict(backbone.named_modules())['fc'].in_features, 256)
 
             else:
                 raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks))
