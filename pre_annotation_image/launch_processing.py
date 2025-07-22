@@ -21,7 +21,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 logging.getLogger('picsellia').setLevel(logging.INFO)
 # os.chdir('yolov8_pre_annotation')
-command = "python3.12 main.py"
+command = "python3.12 src/pre_annotation_image/main.py"
 
 print(f"Using device: {device}")
 
@@ -117,19 +117,19 @@ while True:
 
         last_line = text
 
-logs_path = '{}-logs.json'.format(job_id)
-with open(logs_path, 'w') as f:
-    if buffer != []:
-        for i, line in enumerate(buffer):
-            logs[part]['logs'][str(job.line_nb + i)] = line
-        job.send_logging(buffer, part, special='buffer')
-    logs["exit_code"] = {
-        'exit_code': str(process.returncode),
-        'datetime': str(datetime.now().isoformat())
-    }
-    json.dump(logs, f)
-job.send_logging(str(process.returncode), part, special='exit_code')
-job.store_logging_file(logs_path)
+# logs_path = '{}-logs.json'.format(job_id)
+# with open(logs_path, 'w') as f:
+#     if buffer != []:
+#         for i, line in enumerate(buffer):
+#             logs[part]['logs'][str(job.line_nb + i)] = line
+#         job.send_logging(buffer, part, special='buffer')
+#     logs["exit_code"] = {
+#         'exit_code': str(process.returncode),
+#         'datetime': str(datetime.now().isoformat())
+#     }
+#     json.dump(logs, f)
+# job.send_logging(str(process.returncode), part, special='exit_code')
+# job.store_logging_file(logs_path)
 
 if process.returncode == 0 or process.returncode == "0":
     job.update_job_run_with_status(JobRunStatus.SUCCEEDED)

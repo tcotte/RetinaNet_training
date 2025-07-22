@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
         nb_img += 1
 
-        plt.savefig(rf'C:\Users\tristan_cotte\SGS\FR-ST-Performance Opérationnelle - Documents\06- R&D Automation\01 - Projets par Site\04 - Brest\05 - Microbiologie classique\07- AI models\RetinaNet\Inferences_CA\output_inference\inference_{nb_img}.png')
+        #plt.savefig(rf'C:\Users\tristan_cotte\SGS\FR-ST-Performance Opérationnelle - Documents\06- R&D Automation\01 - Projets par Site\04 - Brest\05 - Microbiologie classique\07- AI models\RetinaNet\Inferences_CA\output_inference\inference_{nb_img}.png')
 
         metric_torch_model.update([torch_outputs], targets_gpu)
 

@@ -13,8 +13,6 @@ from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from augmentations import train_augmentation_v3
-
 
 class PascalVOCDataset(Dataset):
     """
@@ -31,7 +29,6 @@ class PascalVOCDataset(Dataset):
         self.split = split.upper()
         self._single_cls = single_cls
         self._add_bckd_as_class = add_bckd_as_class
-
 
         self.transform = transform
 

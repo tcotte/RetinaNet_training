@@ -140,11 +140,11 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
             augmentation_params = read_yaml_file(file_path=augmentation_hyperparams_file)
         else:
             augmentation_params = {}
-            train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
+            train_transform = globals()[f"train_augmentation_v{augmentation_version}"](
             random_crop=random_crop, image_size=image_size, **augmentation_params)
 
     else:
-        train_transform = locals()[f"train_augmentation_v{augmentation_version}"](
+        train_transform = globals()[f"train_augmentation_v{augmentation_version}"](
             random_crop=random_crop, image_size=image_size)
 
     valid_transform = A.Compose([
