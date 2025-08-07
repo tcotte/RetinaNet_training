@@ -3,6 +3,9 @@ import cv2
 from albumentations import ToTensorV2
 from matplotlib import pyplot as plt
 
+from training_image.picsellia_folder.advanced_augmentations.cut_out import CutOut
+from training_image.picsellia_folder.advanced_augmentations.mixed_augmentations import MixUp, CutMix
+
 try:
     from utils import read_yaml_file
 except ModuleNotFoundError:
@@ -99,12 +102,54 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int], **kwargs) ->
         'HorizontalFlip': {
             'prob': 0.5
         },
-        'Mosaic': {
+        'mosaic': {
             'prob': 0.5
+        },
+        'cutout': {
+            'prob': 0.0
+        },
+        'cutmix': {
+            'prob': 0.0
+        },
+        'mixup': {
+            'prob': 0.0
         }
     }
 
     parameters.update(kwargs)
+
+    list_advanced_augmentations = []
+    if parameters['mosaic']['prob'] > 0:
+        list_advanced_augmentations.append(A.Mosaic(
+            grid_yx=[2, 2],
+            target_size=image_size,
+            cell_shape=image_size,
+            center_range=[0.5, 0.5],
+            fit_mode="cover",
+            interpolation=cv2.INTER_LINEAR,
+            mask_interpolation=cv2.INTER_NEAREST,
+            fill=0,
+            fill_mask=0,
+            p=parameters['mosaic']['prob']
+        ))
+
+    if parameters['cutout']['prob'] > 0:
+        list_advanced_augmentations.append(CutOut(target_size=image_size, p=parameters['cutout']['prob']))
+
+    if parameters['cutmix']['prob'] > 0:
+        list_advanced_augmentations.append(CutMix(target_size=image_size, p=parameters['cutmix']['prob']))
+
+    if parameters['mixup']['prob'] > 0:
+        list_advanced_augmentations.append(MixUp(target_size=image_size, p=parameters['mixup']['prob']))
+
+    if len(list_advanced_augmentations) > 0:
+        advanced_augmentations = A.OneOf([
+            A.Resize(*image_size),
+            *list_advanced_augmentations
+        ], p=1)
+
+    else:
+        advanced_augmentations = A.Resize(*image_size, p=1)
 
     return A.Compose([
 
@@ -140,21 +185,7 @@ def train_augmentation_v3(random_crop, image_size: tuple[int, int], **kwargs) ->
         # BGR Channel Swap -> not implemented -> p =0
 
         # Mosaic
-        A.OneOf([
-            A.Resize(*image_size),
-            A.Mosaic(
-                grid_yx=[2, 2],
-                target_size=image_size,
-                cell_shape=image_size,
-                center_range=[0.5, 0.5],
-                fit_mode="cover",
-                interpolation=cv2.INTER_LINEAR,
-                mask_interpolation=cv2.INTER_NEAREST,
-                fill=0,
-                fill_mask=0,
-                p=parameters['Mosaic']['prob']
-            )
-        ]),
+        advanced_augmentations,
 
         # Mixup(mixup) -> not implemented -> p =0
         # A.MixUp(),
@@ -209,10 +240,11 @@ if __name__ == '__main__':
 
 
 
-    d = read_yaml_file(file_path=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\picsellia_folder\aug_hyp.yaml')
+    # d = read_yaml_file(file_path=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\picsellia_folder\aug_hyp.yaml')
 
     for i in range(10):
-        transform = train_augmentation_v3(random_crop=False, image_size=(1024, 1024), **d)
+        # transform = train_augmentation_v3(random_crop=False, image_size=(1024, 1024), **d)
+        transform = train_augmentation_v3(random_crop=False, image_size=(1024, 1024))
         transformed = transform(image=image, class_labels=['d'], bboxes=[], category_ids=[])
         visualize(
             np.transpose(transformed['image'].numpy(), (1, 2, 0)),

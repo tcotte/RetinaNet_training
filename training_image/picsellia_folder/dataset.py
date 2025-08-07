@@ -2,16 +2,28 @@ import logging
 import os
 import random
 import xml.etree.ElementTree as ET
+from collections import namedtuple
+from typing import Any, cast, Dict, Optional, Union
 
 import albumentations
+import cv2
 import imutils
 import imutils.paths
 import numpy as np
 import torch
 from PIL import Image
+from albumentations import DualTransform, ToTensorV2
+from albumentations.augmentations.mixing.functional import _preprocess_item_annotations
+from albumentations.core.bbox_utils import denormalize_bboxes, normalize_bboxes, clip_bboxes
+from albumentations.core.utils import ShapeType
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from tools.model_retinanet import collate_fn
+from training_image.picsellia_folder.advanced_augmentations.bboxes import Bbox
+from training_image.picsellia_folder.advanced_augmentations.cut_out import CutOut
+from training_image.picsellia_folder.advanced_augmentations.mixed_augmentations import MixUp, CutMix
 
 
 class PascalVOCDataset(Dataset):
@@ -32,7 +44,10 @@ class PascalVOCDataset(Dataset):
 
         self.transform = transform
 
-        self._apply_mosaic = self._mosaic_in_transform()
+        self._apply_mosaic = self._processing_in_transform(
+            processing=albumentations.augmentations.mixing.transforms.Mosaic)
+        self._apply_cutmix = self._processing_in_transform(processing=CutMix)
+        self._apply_mixup = self._processing_in_transform(processing=MixUp)
 
         assert self.split in {'TRAIN', 'TEST'}
 
@@ -48,14 +63,14 @@ class PascalVOCDataset(Dataset):
         if do_class_mapping:
             self.class_mapping, self.number_obj_by_cls = self.get_class_mapping()
 
-    def _mosaic_in_transform(self):
+    def _processing_in_transform(self, processing: Union['CutMix', 'MixUp', albumentations.DualTransform]):
         for trans in self.transform.transforms:
-            if type(trans) == albumentations.augmentations.mixing.transforms.Mosaic:
+            if type(trans) == processing:
                 return True
 
             elif type(trans) == albumentations.core.composition.OneOf:
                 for x in trans.transforms:
-                    if type(x) == albumentations.augmentations.mixing.transforms.Mosaic:
+                    if type(x) == processing:
                         return True
 
         return False
@@ -152,6 +167,8 @@ class PascalVOCDataset(Dataset):
 
         # difficulties = torch.ByteTensor(objects['difficulties'])  # (n_objects)
 
+        augmentations_metadata = {}
+
         if self._apply_mosaic:
             # Prepare mosaic_metadata: 3 additional samples (total of 4 for mosaic)
             mosaic_candidates = list(range(0, i)) + list(range(i + 1, len(self.annotation_files)))
@@ -168,17 +185,33 @@ class PascalVOCDataset(Dataset):
                     "class_labels": ann["labels"]
                 })
 
-            # Apply transformations
-            # [v for i,v in enumerate(l) if i!=4]
-            transformed = self.transform(image=np.array(image),
-                                         bboxes=np.array(objects['boxes']),
-                                         class_labels=np.array(objects['labels']),
-                                         mosaic_metadata=mosaic_metadata)
+            augmentations_metadata['mosaic_metadata'] = mosaic_metadata
 
-        else:
+        if self._apply_cutmix or self._apply_mixup:
+            # Prepare cutmix_metadata: 1 additional sample
+            mixed_candidates = list(range(0, i)) + list(range(i + 1, len(self.annotation_files)))
+            mixed_index = random.sample(mixed_candidates, k=1)[0]
+
+            ann = self.parse_annotation(self.annotation_files[mixed_index], single_cls=True)
+            mixed_image = Image.open(ann['image']).convert('RGB')
+            mixed_np = np.array(mixed_image)
+            mixed_metadata = {
+                "image": mixed_np,
+                "bboxes": ann["boxes"],
+                "class_labels": ann["labels"]
+            }
+
+            augmentations_metadata['mixed_metadata'] = mixed_metadata
+
+        if augmentations_metadata == {}:
             transformed = self.transform(image=np.array(image),
                                          bboxes=np.array(objects['boxes']),
                                          class_labels=np.array(objects['labels']))
+        else:
+            transformed = self.transform(image=np.array(image),
+                                         bboxes=np.array(objects['boxes']),
+                                         class_labels=np.array(objects['labels']),
+                                         **augmentations_metadata)
 
         image = transformed['image'] / 225.
         boxes = torch.FloatTensor(transformed['bboxes'])  # (n_objects, 4)
@@ -245,11 +278,31 @@ class PascalVOCTestDataset(Dataset):
 
 
 if __name__ == '__main__':
-    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\datasets\train'
+    import albumentations as A
+
+    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test'
     IMAGE_SIZE = (1024, 1024)
     SINGLE_CLS = True
 
-    train_transform = train_augmentation_v3(random_crop=False, image_size=IMAGE_SIZE)
+    train_transform = A.Compose([
+        A.OneOf([
+            # Cutout(p=0.5),
+            A.Resize(height=1024, width=1024, p=1),
+            MixUp(p=0.25, target_size=(1024, 1024)),
+            CutMix(p=0.25, target_size=(1024, 1024)),
+            CutOut(p=0.25, target_size=(1024, 1024)),
+            A.Mosaic(p=0.25, target_size=(1024, 1024))
+
+            # MixUp(p=0.25, target_size=(1024, 1024)),
+        ], p=1),
+        # Cutout(p=1, min_cutout_size=1024, max_cutout_size=2048),
+
+        # A.Normalize(),
+        # A.Resize(*IMAGE_SIZE),
+        A.VerticalFlip(p=0.5),
+        # CustomCutout(p=1, always_apply=True, min_cutout_size=512),
+        ToTensorV2()
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
     #
     #     train_transform = A.Compose([
@@ -290,8 +343,17 @@ if __name__ == '__main__':
         single_cls=SINGLE_CLS,
         transform=train_transform)
 
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=8, collate_fn=collate_fn)
+
     # for i in val_dataset[:8]:
     # print(val_dataset[0][0])
-    for i in range(10):
-        plt.imshow(torch.permute(val_dataset[i][0], (2, 1, 0)).numpy())
+    for i in range(8):
+        sample = next(iter(val_loader))
+        torch_image = sample[0][i]
+        annotations = sample[1][i]
+        image = torch.permute(torch_image, (1, 2, 0)).numpy()
+        image = np.ascontiguousarray(image, dtype=np.float32)
+        for bbox in annotations['boxes']:
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+        plt.imshow(image)
         plt.show()

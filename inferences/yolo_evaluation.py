@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # shutil.rmtree(model_target_path, ignore_errors=True)
     # experiment.get_artifact(name='pretrained-weights').download(target_path=model_target_path)
 
-    model_weights_path = r'models/YOLO/yolov8-best.onnx'
+    model_weights_path = r'models/YOLO/YOLOv8_Ab.onnx'
     # model_weights_path = 'tmp/latest.pth'
 
     # Get device

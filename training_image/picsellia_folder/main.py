@@ -3,6 +3,7 @@ import os
 import shutil
 import typing
 import zipfile
+from collections import defaultdict
 from collections.abc import MutableMapping
 from typing import Union
 
@@ -132,14 +133,25 @@ def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
 
 
 def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_workers: int, batch_size: int, path_root: str,
-                       augmentation_version: int,
+                       augmentation_version: int, cutmix_prob: float, mixup_prob: float, mosaic_prob: float,
+                       cutout_prob: float,
                        random_crop: bool = False, augmentation_hyperparams_file: typing.Optional[str] = None) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
     if augmentation_version > 2:
         if augmentation_hyperparams_file is not None:
             augmentation_params = read_yaml_file(file_path=augmentation_hyperparams_file)
+            augmentation_params = defaultdict(dict, augmentation_params)
+            augmentation_params['cutout']['prob'] = cutout_prob
+            augmentation_params['cutmix']['prob'] = cutmix_prob
+            augmentation_params['mosaic']['prob'] = mosaic_prob
+            augmentation_params['mixup']['prob'] = mixup_prob
         else:
-            augmentation_params = {}
+            # augmentation_params = {}
+            augmentation_params = defaultdict(dict)
+            augmentation_params['cutout']['prob'] = cutout_prob
+            augmentation_params['cutmix']['prob'] = cutmix_prob
+            augmentation_params['mosaic']['prob'] = mosaic_prob
+            augmentation_params['mixup']['prob'] = mixup_prob
             train_transform = globals()[f"train_augmentation_v{augmentation_version}"](
             random_crop=random_crop, image_size=image_size, **augmentation_params)
 
@@ -290,7 +302,12 @@ if __name__ == "__main__":
         batch_size=training_parameters.batch_size,
         path_root=dataset_root_folder,
         random_crop=training_parameters.augmentations.crop,
-        augmentation_version=training_parameters.augmentations.version
+        augmentation_version=training_parameters.augmentations.version,
+        cutmix_prob = parameters['cutmix'] if 'cutmix' in parameters.keys() else 0.0,
+        mosaic_prob = parameters['mosaic'] if 'mosaic' in parameters.keys() else 0.0,
+        cutout_prob = parameters['cutout'] if 'cutout' in parameters.keys() else 0.0,
+        mixup_prob = parameters['mixup'] if 'mixup' in parameters.keys() else 0.0,
+
     )
 
     class_mapping = get_class_mapping_from_picsellia(dataset_versions=datasets,

@@ -78,14 +78,16 @@ if __name__ == '__main__':
     #     total_configs['learning_rate']['initial_lr'] = parameters['learning_rate']
 
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
-    if len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1:
-        training_parameters.anchor_boxes = AnchorBoxesParameters(
-            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
-                [tuple(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) for i in range(5)]))
-    elif len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 5:
-        training_parameters.anchor_boxes = AnchorBoxesParameters(
-            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
-                experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
+
+    if 'anchor_boxes_sizes' in experiment.get_log('All parameters').data:
+        if len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1:
+            training_parameters.anchor_boxes = AnchorBoxesParameters(
+                sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
+                    [tuple(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) for i in range(5)]))
+        elif len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 5:
+            training_parameters.anchor_boxes = AnchorBoxesParameters(
+                sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']), aspect_ratios=tuple(
+                    experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
 
     training_parameters.device = device.type
     if device.type == 'cuda':
@@ -112,9 +114,11 @@ if __name__ == '__main__':
                         fg_iou_thresh=training_parameters.fg_iou_thresh,
                         bg_iou_thresh=training_parameters.bg_iou_thresh)
 
-    model.anchor_generator = AnchorGenerator(
-        sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
-        aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
+    if 'anchor_boxes_sizes' in experiment.get_log('All parameters').data:
+        model.anchor_generator = AnchorGenerator(
+            sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
+            aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
+
 
     model.load_state_dict(torch.load(model_weights_path))
     model.to(device)
