@@ -2,8 +2,7 @@ import logging
 import os
 import random
 import xml.etree.ElementTree as ET
-from collections import namedtuple
-from typing import Any, cast, Dict, Optional, Union
+from typing import Union
 
 import albumentations
 import cv2
@@ -12,18 +11,16 @@ import imutils.paths
 import numpy as np
 import torch
 from PIL import Image
-from albumentations import DualTransform, ToTensorV2
+from albumentations import ToTensorV2
 from albumentations.augmentations.mixing.functional import _preprocess_item_annotations
-from albumentations.core.bbox_utils import denormalize_bboxes, normalize_bboxes, clip_bboxes
-from albumentations.core.utils import ShapeType
+from albumentations.core.bbox_utils import denormalize_bboxes
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from tools.model_retinanet import collate_fn
-from training_image.picsellia_folder.advanced_augmentations.bboxes import Bbox
-from training_image.picsellia_folder.advanced_augmentations.cut_out import CutOut
-from training_image.picsellia_folder.advanced_augmentations.mixed_augmentations import MixUp, CutMix
+from advanced_augmentations.cut_out import CutOut
+from advanced_augmentations.mixed_augmentations import MixUp, CutMix
 
 
 class PascalVOCDataset(Dataset):

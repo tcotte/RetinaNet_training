@@ -3,8 +3,8 @@ import cv2
 from albumentations import ToTensorV2
 from matplotlib import pyplot as plt
 
-from training_image.picsellia_folder.advanced_augmentations.cut_out import CutOut
-from training_image.picsellia_folder.advanced_augmentations.mixed_augmentations import MixUp, CutMix
+from advanced_augmentations.cut_out import CutOut
+from advanced_augmentations.mixed_augmentations import MixUp, CutMix
 
 try:
     from utils import read_yaml_file
