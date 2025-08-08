@@ -18,10 +18,6 @@ import sys
 
 import xml.etree.ElementTree as ET
 
-# from keras_retinanet.preprocessing.csv_generator import _open_for_csv
-# from keras_retinanet.utils.anchors import generate_anchors, AnchorParameters, anchors_for_shape
-# from keras_retinanet.utils.image import compute_resize_scale
-
 
 # global variable
 global state

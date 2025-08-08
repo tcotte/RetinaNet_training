@@ -57,6 +57,10 @@ if __name__ == '__main__':
         "num_workers": 8,
         "coco_pretrained_weights": "True",
         "image_size": 1024,
+        "mosaic": 0,
+        "cutmix": 0,
+        "cutout": 0,
+        "mixup": 0
     }
 
     # ResNet backbone
@@ -102,7 +106,10 @@ if __name__ == '__main__':
             model_version = model.get_version(version='RetinaNet_ResNeXt' + str(nb_layers))
             model_version.delete()
 
-            model_version = create_retinanet_model_version(model=model, nb_layers=nb_layers, base_parameters=base_parameters)
+            model_version = create_retinanet_model_version(model=model,
+                                                           nb_layers=nb_layers,
+                                                           base_parameters=base_parameters,
+                                                           name='RetinaNet_ResNeXt' + str(nb_layers))
 
         finally:
             model_version.store(name='config', path=temp_config_filepath)

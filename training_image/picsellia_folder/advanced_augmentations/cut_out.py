@@ -31,8 +31,8 @@ class CutOut(DualTransform):
 
         :param fill_value: Value to be filled in cutout (default is 0 or black color)
         :param bbox_removal_threshold: Bboxes having content cut by cutout path more than this threshold will be removed
-        :param min_cutout_size: minimum size of cutout (192 x 192)
-        :param max_cutout_size: maximum size of cutout (512 x 512)
+        :param min_percentage_cut: minimum percentage of image which will be cut out
+        :param max_percentage_cut: maximum percentage of image which will be cut out
         """
         super(CutOut, self).__init__(p)  # Initialize parent class
         self.fill_value = fill_value
@@ -91,11 +91,10 @@ class CutOut(DualTransform):
         else:
             return cv2.resize(image, self.target_size)
 
-    def apply_to_bboxes(self, original_bboxes, **params):
+    def apply_to_bboxes(self, original_bboxes: np.ndarray, **params):
         """
         Removes the bounding boxes which are covered by the applied cutout
-
-        :param bbox: A single bounding box coordinates in pascal_voc format
+        :param original_bboxes: 2D array of bounding boxes coordinates in pascal_voc format
         :returns transformed bbox's coordinates
         """
         filtered_bboxes_index = []
@@ -121,7 +120,7 @@ class CutOut(DualTransform):
 
         else:
             return clip_bboxes(bboxes=original_bboxes,
-                        shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
+                               shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
 
     def get_transform_init_args_names(self):
         """

@@ -1,4 +1,5 @@
 import os
+import time
 
 import imutils.paths
 import torch
@@ -80,9 +81,10 @@ if __name__ == '__main__':
         annotation_file = os.path.join(dataset_root_folder, 'test', 'Annotations',
                                        os.path.basename(image).replace('.jpg', '.xml'))
         target = parse_annotation(xml_file=annotation_file)
-
+        start = time.time()
         predictions = [{'boxes': prediction[0].boxes.xyxy, 'labels': torch.zeros(len(prediction[0].boxes.cls)),
                         'scores': prediction[0].boxes.conf}]
+        print('Inference took {} seconds'.format(time.time() - start))
 
         targets = [{k: torch.Tensor(v) for k, v in target.items()}]
 

@@ -114,7 +114,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
             experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
-    job.wait_for_done()
+    # job.wait_for_done()
 
 
 if __name__ == '__main__':

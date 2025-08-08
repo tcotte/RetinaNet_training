@@ -153,7 +153,7 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
             augmentation_params['mosaic']['prob'] = mosaic_prob
             augmentation_params['mixup']['prob'] = mixup_prob
             train_transform = globals()[f"train_augmentation_v{augmentation_version}"](
-            random_crop=random_crop, image_size=image_size, **augmentation_params)
+                random_crop=random_crop, image_size=image_size, **augmentation_params)
 
     else:
         train_transform = globals()[f"train_augmentation_v{augmentation_version}"](
@@ -252,10 +252,11 @@ if __name__ == "__main__":
     # Download datasets
     datasets = experiment.list_attached_dataset_versions()
 
-    if not os.path.exists(dataset_root_folder):
-        download_datasets(experiment=experiment, root_folder=dataset_root_folder)
-    else:
-        logging.warning(f'A dataset was previously imported before the training.')
+    # if not os.path.exists(dataset_root_folder):
+    #     download_datasets(experiment=experiment, root_folder=dataset_root_folder)
+    # else:
+    #     logging.warning(f'A dataset was previously imported before the training.')
+    download_datasets(experiment=experiment, root_folder=dataset_root_folder)
 
     base_model = experiment.get_base_model_version()
 
@@ -303,10 +304,10 @@ if __name__ == "__main__":
         path_root=dataset_root_folder,
         random_crop=training_parameters.augmentations.crop,
         augmentation_version=training_parameters.augmentations.version,
-        cutmix_prob = parameters['cutmix'] if 'cutmix' in parameters.keys() else 0.0,
-        mosaic_prob = parameters['mosaic'] if 'mosaic' in parameters.keys() else 0.0,
-        cutout_prob = parameters['cutout'] if 'cutout' in parameters.keys() else 0.0,
-        mixup_prob = parameters['mixup'] if 'mixup' in parameters.keys() else 0.0,
+        cutmix_prob=parameters['cutmix'] if 'cutmix' in parameters.keys() else 0.0,
+        mosaic_prob=parameters['mosaic'] if 'mosaic' in parameters.keys() else 0.0,
+        cutout_prob=parameters['cutout'] if 'cutout' in parameters.keys() else 0.0,
+        mixup_prob=parameters['mixup'] if 'mixup' in parameters.keys() else 0.0,
 
     )
 
@@ -331,7 +332,6 @@ if __name__ == "__main__":
 
         training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
         training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
-
 
     # Build model
     if training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
