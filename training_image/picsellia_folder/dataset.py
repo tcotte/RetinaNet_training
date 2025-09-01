@@ -214,7 +214,12 @@ class PascalVOCDataset(Dataset):
         boxes = torch.FloatTensor(transformed['bboxes'])  # (n_objects, 4)
         labels = torch.LongTensor(transformed['class_labels'])  # (n_objects)
 
-        return image, {'boxes': boxes, 'labels': labels}
+        if not self.split == 'TEST':
+            return image, {'boxes': boxes, 'labels': labels}
+
+        else:
+            return image, {'boxes': boxes, 'labels': labels}, os.path.basename(objects['image'])
+
 
     def __len__(self):
         return len(self.images)

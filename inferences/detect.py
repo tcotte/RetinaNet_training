@@ -39,7 +39,7 @@ def download_dataset_version(root, alias, experiment):
 
 
 if __name__ == '__main__':
-    dataset_root_folder = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset'
+    dataset_root_folder = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\CA\dataset'
     # model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\models\latest.pth'
 
     # Picsell.ia connection

@@ -5,11 +5,12 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from picsellia import Experiment, Client
-from picsellia.types.enums import InferenceType
+from picsellia.types.enums import InferenceType, LogType
+from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 
-from dataset import PascalVOCTestDataset
+from dataset import PascalVOCDataset
 from tools.model_retinanet import build_retinanet_model, collate_fn
 from tools.retinanet_parameters import TrainingParameters
 
@@ -56,8 +57,8 @@ def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: Lis
     return ax
 
 
-def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Experiment,
-                                  dataset_version_name: str, device, batch_size: int = 1) -> None:
+def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.data.DataLoader, experiment: Experiment,
+                                  dataset_version_name: str, device) -> None:
     """
     Fill picsellia evaluation tab to have a visual representation of the inferences on the dataset split sent via
     loader.
@@ -70,23 +71,39 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
     :param device: device which will compute the predictions
     :param batch_size: size of the batch to use for predictions
     """
+
+    def log_final_metrics(results: Dict[str, float]) -> None:
+        data = {
+            "mAP": f'{float(results["map"]):.3}',
+            'mAP[50]': f'{float(results["map_50"]): .3}',
+            'mAP[75]': f'{float(results["map_75"]):.3}',
+            'Precision': f'{float(results["precision"][0][25][0][0][-1]):.3}',
+            'Recall': f'{float(results["recall"][0][0][0][-1]):.3}'
+        }
+        print(data)
+        experiment.log(name='Final results', type=LogType.TABLE, data=data)
+
+    metric = MeanAveragePrecision(iou_type="bbox", max_detection_thresholds=[3000, 5000, 10000],
+                                  extended_summary=True)
+
     dataset_version = experiment.get_dataset(name=dataset_version_name)
     picsellia_labels = dataset_version.list_labels()
 
     model.topk_candidates = 5000
     model.detections_per_img = 3000
 
-
     model.to(device)
     model.eval()
 
-    for i, (images, file_paths) in enumerate(data_loader):
+    for i, (images, targets, file_paths) in enumerate(data_loader):
         images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         with torch.no_grad():
             predictions = model(images)
+            metric.update(predictions, targets)
 
-        for idx in range(batch_size):
+        for idx in range(len(images)):
             asset = dataset_version.find_asset(filename=file_paths[idx])
 
             resized_image_height, resized_image_width = images[idx].size()[-2:]
@@ -113,6 +130,8 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader, experiment: Exp
 
             experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
 
+    log_final_metrics(results=metric.compute())
+
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     # job.wait_for_done()
 
@@ -128,8 +147,7 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\saved_models\candida_albicans\latest_retiunanet_1024.pth'
-
+    model_weights_path = '...'
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
     if device.type == 'cuda':
@@ -149,7 +167,8 @@ if __name__ == '__main__':
                                       'augmentations_normalization_std'],
                                   anchor_boxes_params=training_parameters.anchor_boxes,
                                   fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                  bg_iou_thresh=training_parameters.bg_iou_thresh
+                                  bg_iou_thresh=training_parameters.bg_iou_thresh,
+                                  image_size=(1024, 1024)
                                   )
     model.anchor_generator = AnchorGenerator(
         sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
@@ -160,27 +179,33 @@ if __name__ == '__main__':
     model.eval()
 
     # dataset
-    image_size = experiment.get_log('All parameters').data['image_size']
+    # image_size = experiment.get_log('All parameters').data['image_size']
+    image_size = (1024, 1024)
     random_crop = False
 
     valid_transform = A.Compose([
         A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
         ToTensorV2()
-    ])
+        ], bbox_params = A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
-    test_dataset = PascalVOCTestDataset(
-        image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
-        transform=valid_transform
-    )
+    # test_dataset = PascalVOCTestDataset(
+    #     image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
+    #     transform=valid_transform
+    # )
 
+    test_dataset = PascalVOCDataset(
+        data_folder='...',
+        split='test',
+        single_cls=True,
+        transform=valid_transform)
 
     val_data_loader = torch.utils.data.DataLoader(
         test_dataset,
         num_workers=8,
-        batch_size=1,
+        batch_size=4,
         shuffle=False,
         collate_fn=collate_fn
     )
 
     fill_picsellia_evaluation_tab(model=model, data_loader=val_data_loader, experiment=experiment,
-                                  dataset_version_name='test', device=device, batch_size=1)
+                                  dataset_version_name='test', device=device)

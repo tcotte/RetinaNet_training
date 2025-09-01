@@ -38,7 +38,7 @@ def create_retinanet_model_version(model: picsellia.Model, nb_layers: int, base_
                          framework=Framework.PYTORCH,
                          docker_image_name="9d8xtfjr.c1.gra9.container-registry.ovh.net/picsellia/retinanet_training",
                          docker_tag='1.0',
-                         docker_flags=['--gpus all'])
+                         docker_flags=['--gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864'])
     return model_version
 
 

@@ -106,6 +106,7 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     with torch.no_grad():
                         val_loss_dict = model(images, targets)
 
+                    # apply coefficients for regression and classification losses
                     val_loss_dict = apply_loss_weights(loss_dict=val_loss_dict, loss_coefficients=loss_coefficients)
                     total_val_loss = sum(loss for loss in val_loss_dict.values())
 

@@ -172,7 +172,7 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
 
     val_dataset = PascalVOCDataset(
         data_folder=os.path.join(path_root, 'val'),
-        split='test',
+        split='train',
         single_cls=single_cls,
         transform=valid_transform)
 
@@ -420,11 +420,11 @@ if __name__ == "__main__":
 
     test_dataset = PascalVOCTestDataset(image_folder=os.path.join(dataset_root_folder, 'test'),
                                         transform=valid_transform)
-    evaluation_batch_size: int = 1
+
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         num_workers=training_parameters.workers_number,
-        batch_size=evaluation_batch_size,
+        batch_size=training_parameters.batch_size,
         shuffle=False
     )
 
@@ -432,5 +432,4 @@ if __name__ == "__main__":
                                   data_loader=test_dataloader,
                                   experiment=experiment,
                                   dataset_version_name='test',
-                                  device=device,
-                                  batch_size=evaluation_batch_size)
+                                  device=device)
