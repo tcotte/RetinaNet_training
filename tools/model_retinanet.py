@@ -65,11 +65,11 @@ def build_retinanet_model(
 
     if anchor_boxes_params is not None:
         if not isinstance(anchor_boxes_params, dict):
-            model.anchor_generator = AnchorGenerator(**{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
+            model.anchor_generator = AnchorGenerator(
+                **{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
         else:
             model.anchor_generator = AnchorGenerator(
                 **{k: v for k, v in anchor_boxes_params.items() if k != 'auto_size'})
-
 
     num_anchors = model.head.classification_head.num_anchors
     model.head.classification_head = RetinaNetClassificationHead(
@@ -106,7 +106,6 @@ def build_model(
         backbone_layers_nb: int = 50,
         add_P2_to_FPN: bool = False,
         extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> RetinaNet:
-
     backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
                                   extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3,
                                   use_imageNet_pretrained_weights=use_imageNet_pretrained_weights)
@@ -124,8 +123,6 @@ def build_model(
         norm_layer=partial(nn.GroupNorm, 32),
     )
     head.regression_head._loss_type = "giou"
-
-
 
     model = RetinaNet(backbone=backbone_fpn,
                       num_classes=num_classes,
@@ -177,6 +174,7 @@ def build_resnet_model(size: int, pretrained: bool = False) -> nn.Module:
     else:
         raise ValueError(f"ResNet model size {size} is not supported")
 
+
 def build_resnext_model(size: int, pretrained: bool = False) -> nn.Module:
     resNeXt_sizes = [50, 101]
     if size in resNeXt_sizes:
@@ -190,7 +188,8 @@ def build_resnext_model(size: int, pretrained: bool = False) -> nn.Module:
         raise ValueError(f"ResNeXt model size {size} is not supported")
 
 
-def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights: bool, size: int = 50, add_P2_to_FPN: bool = False,
+def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights: bool, size: int = 50,
+                   add_P2_to_FPN: bool = False,
                    extra_blocks: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool,
                    trainable_backbone_layers: int = 3) -> _resnet_fpn_extractor:
     if backbone_type == BackboneType.ScaleNet:
@@ -217,7 +216,8 @@ def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights:
             if extra_blocks == FPNExtraBlocks.LastLevelMaxPool:
                 torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelMaxPool()
             elif extra_blocks == FPNExtraBlocks.LastLevelP6P7:
-                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(dict(backbone.named_modules())['fc'].in_features, 256)
+                torchvision_extra_block = torchvision.ops.feature_pyramid_network.LastLevelP6P7(
+                    dict(backbone.named_modules())['fc'].in_features, 256)
 
             else:
                 raise ValueError('Invalid extra bloc name: {}'.format(extra_blocks))

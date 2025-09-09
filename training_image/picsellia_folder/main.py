@@ -106,12 +106,11 @@ def download_datasets(experiment: Experiment, root_folder: str = 'dataset'):
             logging.info(f'{alias} alias for {dataset_version}')
             download_dataset_version()
 
-    # elif len(experiment.list_attached_dataset_versions()) == 2:
-    #     for alias in ['test', 'train', 'val']:
-    #
-    #         dataset_version = experiment.get_dataset(alias)
-    #         logging.info(f'{alias} alias for {dataset_version}')
-    #         download_dataset_version()
+    elif len(experiment.list_attached_dataset_versions()) == 2:
+        for alias in ['train', 'val']:
+            dataset_version = experiment.get_dataset(alias)
+            logging.info(f'{alias} alias for {dataset_version}')
+            download_dataset_version()
 
 
 def download_experiment_file(base_model: ModelVersion, experiment_file: str):
@@ -208,6 +207,20 @@ def get_class_mapping_from_picsellia(dataset_versions: typing.List[DatasetVersio
         labels.append('cls0')
 
     return dict(zip(range(len(labels)), labels))
+
+
+def get_test_dataset_split(nb_splits_dataset: int) -> str:
+    """
+    Get name of test dataset depending on the number of splits in the dataset.
+    If nb_splits_dataset is 2, the test dataset split will be 'val'.
+    If nb_splits_dataset is 3, the test dataset split will be 'test'.
+    :param nb_splits_dataset: number of splits in the dataset
+    :return: name of the split used as test in the dataset
+    """
+    if nb_splits_dataset == 2:
+        return 'val'
+    else:
+        return 'test'
 
 
 def get_optimizer(optimizer_name: str, lr0: float, weight_decay: float, model_params) -> torch.optim.Optimizer:
@@ -418,14 +431,19 @@ if __name__ == "__main__":
         ToTensorV2()
     ])
 
-    test_dataset = PascalVOCTestDataset(image_folder=os.path.join(dataset_root_folder, 'test'),
-                                        transform=valid_transform)
+    test_dataset = PascalVOCDataset(
+        data_folder=os.path.join(dataset_root_folder, get_test_dataset_split(
+            nb_splits_dataset=len(experiment.list_attached_dataset_versions()))),
+        split='test',
+        single_cls=True,
+        transform=valid_transform)
 
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         num_workers=training_parameters.workers_number,
         batch_size=training_parameters.batch_size,
-        shuffle=False
+        shuffle=False,
+        collate_fn=collate_fn
     )
 
     fill_picsellia_evaluation_tab(model=model,

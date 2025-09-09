@@ -2,6 +2,7 @@ import logging
 import os.path
 from distutils.util import strtobool
 
+import picsellia
 import torch.cuda
 from picsellia import Client
 
@@ -16,7 +17,7 @@ def str2bool(str_value: str) -> bool:
 
 
 if __name__ == "__main__":
-    use_picsellia_processing: bool = True
+    use_picsellia_processing: bool = False
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -39,6 +40,12 @@ if __name__ == "__main__":
         output_dataset_version = context["output_dataset_version_id"]
         model_version_id = context["model_version_id"]
 
+    except picsellia.exceptions.ResourceNotFoundError as e:
+        logging.error(f"No job id found: {str(e)}")
+        context = {'parameters': {}}
+
+        input_dataset_version_id = '0199289e-c461-72c3-a371-ddbb41c9c479'
+        model_version_id = '01992959-312d-718a-952a-294b935bb1f8'
 
     except KeyError as e:
         logging.error(f"No job id found: {str(e)}")
@@ -51,14 +58,16 @@ if __name__ == "__main__":
     parameters = context["parameters"]
 
     confidence_threshold = parameters.get("confidence_threshold", 0.25)
-    image_size = parameters.get("image_size", 1024)
-    model_type = parameters.get("model_type", "onnx")
+    """image_size = parameters.get("image_size", 1024)
+    model_type = parameters.get("model_type", "onnx")"""
+    image_size = parameters.get("image_size", 1524)
+    model_type = parameters.get("model_type", "torch")
 
-    if 'single_class' in parameters:
-        if isinstance(parameters['single_class'], str):
-            single_class = strtobool(val=parameters['single_class'])
-        else:
-            single_class = parameters['single_class']
+    # if 'single_class' in parameters:
+    #     if isinstance(parameters['single_class'], str):
+    #         single_class = strtobool(val=parameters['single_class'])
+    #     else:
+    #         single_class = parameters['single_class']
 
 
     logging.info(f"Used parameters:")

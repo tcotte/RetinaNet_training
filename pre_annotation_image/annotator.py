@@ -23,7 +23,7 @@ from picsellia.sdk.asset import MultiAsset
 from picsellia.types.enums import InferenceType
 from torchvision.models.detection import RetinaNet
 
-from tools.model_retinanet import build_model
+from tools.model_retinanet import build_model, build_retinanet_model
 from tools.picsellia_utils import download_model_version
 from tools.retinanet_parameters import BackboneType, FPNExtraBlocks, AnchorBoxesParameters
 
@@ -237,8 +237,8 @@ class PreAnnotator:
 
         boxes = prediction['boxes'].cpu().numpy() if isinstance(prediction['boxes'], torch.Tensor) else prediction[
             'boxes']
-        scores = prediction['boxes'].cpu().numpy() if isinstance(prediction['boxes'], torch.Tensor) else prediction[
-            'scores']
+        scores = prediction['scores'].cpu().numpy() if isinstance(prediction['boxes'], torch.Tensor) else (
+            prediction)['scores']
         labels = prediction['labels'].cpu().numpy().astype(np.int16) if isinstance(prediction['labels'], torch.Tensor) \
             else prediction['labels']
 
@@ -431,7 +431,8 @@ class PreAnnotator:
             try:
                 experiment = self._get_experiment_attached_to_model_version()
 
-                if len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1:
+                if (len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1 or
+                        len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 3):
                     anchor_boxes = AnchorBoxesParameters(
                         sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']),
                         aspect_ratios=tuple(
@@ -443,36 +444,56 @@ class PreAnnotator:
                         aspect_ratios=tuple(
                             experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
 
-                self.model = build_model(num_classes=len(experiment.get_log('LabelMap').data),
-                                         backbone_type=BackboneType[
-                                             experiment.get_log('All parameters').data['backbone_backbone_type']],
-                                         add_P2_to_FPN=not experiment.get_log('All parameters').data[
-                                             'backbone_add_P2_to_FPN'],
-                                         extra_blocks_FPN=FPNExtraBlocks[
-                                             experiment.get_log('All parameters').data['backbone_extra_blocks_FPN']],
-                                         backbone_layers_nb=experiment.get_log('All parameters').data[
-                                             'backbone_backbone_layers_nb'],
-                                         use_imageNet_pretrained_weights=False,
-                                         trained_weights=self._model_weights_path,
-                                         score_threshold=0.2,
-                                         image_size=self.inference_size,
-                                         # score_threshold=training_parameters.confidence_threshold,
-                                         iou_threshold=0.2,
-                                         unfrozen_layers=3,
-                                         mean_values=experiment.get_log('All parameters').data[
-                                             'augmentations_normalization_mean'],
-                                         std_values=experiment.get_log('All parameters').data[
-                                             'augmentations_normalization_std'],
-                                         anchor_boxes_params=anchor_boxes,
-                                         fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
-                                         bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh']
-                                         )
+                if experiment.get_log('All parameters').data['version'] == 2:
+                    self.model = build_retinanet_model(num_classes=len(experiment.get_log('LabelMap').data),
+                                             use_COCO_pretrained_weights=False,
+                                             trained_weights=self._model_weights_path,
+                                             score_threshold=0.2,
+                                             image_size=self.inference_size,
+                                             # score_threshold=training_parameters.confidence_threshold,
+                                             iou_threshold=0.2,
+                                             unfrozen_layers=3,
+                                             mean_values=experiment.get_log('All parameters').data[
+                                                 'augmentations_normalization_mean'],
+                                             std_values=experiment.get_log('All parameters').data[
+                                                 'augmentations_normalization_std'],
+                                             anchor_boxes_params=anchor_boxes,
+                                             fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
+                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh']
+                                             )
+                else:
+
+                    self.model = build_model(num_classes=len(experiment.get_log('LabelMap').data),
+                                             backbone_type=BackboneType[
+                                                 experiment.get_log('All parameters').data['backbone_backbone_type']],
+                                             add_P2_to_FPN=not experiment.get_log('All parameters').data[
+                                                 'backbone_add_P2_to_FPN'],
+                                             extra_blocks_FPN=FPNExtraBlocks[
+                                                 experiment.get_log('All parameters').data['backbone_extra_blocks_FPN']],
+                                             backbone_layers_nb=experiment.get_log('All parameters').data[
+                                                 'backbone_backbone_layers_nb'],
+                                             use_imageNet_pretrained_weights=False,
+                                             trained_weights=self._model_weights_path,
+                                             score_threshold=0.2,
+                                             image_size=self.inference_size,
+                                             # score_threshold=training_parameters.confidence_threshold,
+                                             iou_threshold=0.2,
+                                             unfrozen_layers=3,
+                                             mean_values=experiment.get_log('All parameters').data[
+                                                 'augmentations_normalization_mean'],
+                                             std_values=experiment.get_log('All parameters').data[
+                                                 'augmentations_normalization_std'],
+                                             anchor_boxes_params=anchor_boxes,
+                                             fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
+                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh']
+                                             )
 
                 self.model.eval()
                 self.model.to(self.device)
 
             except Exception as e:
-                raise PicselliaError(f"Impossible to load saved model located at: {self._model_weights_path}")
+                raise PicselliaError(f"Impossible to load saved model located at: {self._model_weights_path}. "
+                                     f"Error message: {e} ")
 
         else:
             self._session = onnxruntime.InferenceSession(self._model_weights_path, providers=["CUDAExecutionProvider"])
