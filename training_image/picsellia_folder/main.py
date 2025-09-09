@@ -431,9 +431,9 @@ if __name__ == "__main__":
         ToTensorV2()
     ])
 
+    test_dataset_split = get_test_dataset_split(nb_splits_dataset=len(experiment.list_attached_dataset_versions()))
     test_dataset = PascalVOCDataset(
-        data_folder=os.path.join(dataset_root_folder, get_test_dataset_split(
-            nb_splits_dataset=len(experiment.list_attached_dataset_versions()))),
+        data_folder=os.path.join(dataset_root_folder, test_dataset_split),
         split='test',
         single_cls=True,
         transform=valid_transform)
@@ -449,5 +449,5 @@ if __name__ == "__main__":
     fill_picsellia_evaluation_tab(model=model,
                                   data_loader=test_dataloader,
                                   experiment=experiment,
-                                  dataset_version_name='test',
+                                  dataset_version_name=test_dataset_split,
                                   device=device)
