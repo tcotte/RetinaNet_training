@@ -14,7 +14,7 @@ import yaml
 from albumentations.pytorch import ToTensorV2
 from picsellia import Client, ModelVersion, DatasetVersion, Experiment
 from picsellia.types.enums import AnnotationFileType
-from pytorch_warmup import ExponentialWarmup
+from pytorch_warmup import ExponentialWarmup, LinearWarmup
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
@@ -293,6 +293,11 @@ if __name__ == "__main__":
         lr0 = parameters['learning_rate']
         del total_configs['learning_rate']
 
+    for loss_param in ['alpha_loss', 'gamma_loss']:
+        if loss_param in total_configs.keys():
+            total_configs['loss'][loss_param] = total_configs[loss_param]
+            del total_configs[loss_param]
+
     training_parameters = TrainingParameters(**total_configs)
 
     if 'learning_rate' in parameters.keys():
@@ -358,8 +363,9 @@ if __name__ == "__main__":
                                       anchor_boxes_params=training_parameters.anchor_boxes,
                                       fg_iou_thresh=training_parameters.fg_iou_thresh,
                                       bg_iou_thresh=training_parameters.bg_iou_thresh,
-                                      image_size=training_parameters.image_size
-                                      )
+                                      image_size=training_parameters.image_size,
+                                      alpha_loss=training_parameters.loss.alpha_loss,
+                                      gamma_loss=training_parameters.loss.gamma_loss)
 
     else:
         model = build_model(num_classes=len(class_mapping),
@@ -376,7 +382,9 @@ if __name__ == "__main__":
                             backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
                             add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
                             extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
-                            image_size=training_parameters.image_size
+                            image_size=training_parameters.image_size,
+                            alpha_loss=training_parameters.loss.alpha_loss,
+                            gamma_loss=training_parameters.loss.gamma_loss
                             )
 
     model.to(device)
@@ -395,10 +403,8 @@ if __name__ == "__main__":
                                          factor=training_parameters.learning_rate.plateau.factor,
                                          patience=training_parameters.learning_rate.plateau.patience)
 
-    warmup_scheduler = ExponentialWarmup(optimizer,
-                                         warmup_period=training_parameters.learning_rate.warmup.warmup_period,
-                                         last_step=training_parameters.learning_rate.warmup.last_step
-                                         )
+    warmup_scheduler = LinearWarmup(optimizer,
+                                    warmup_period=2000)
 
     # Logger
     picsellia_logger = PicselliaLogger.from_picsellia_client_and_experiment(picsellia_experiment=experiment,
@@ -423,7 +429,8 @@ if __name__ == "__main__":
                 loss_coefficients=training_parameters.loss.dict(),
                 patience=training_parameters.patience,
                 device=device,
-                callback=picsellia_logger)
+                callback=picsellia_logger,
+                mixed_precision=training_parameters.mixed_precision)
 
     # See predictions
     valid_transform = A.Compose([

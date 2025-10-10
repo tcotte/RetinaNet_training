@@ -26,7 +26,6 @@ if __name__ == "__main__":
     api_token = os.environ["api_token"]
     organization_id = os.environ["organization_id"]
 
-
     client = Client(api_token=api_token, organization_id=organization_id)
 
     try:
@@ -44,8 +43,8 @@ if __name__ == "__main__":
         logging.error(f"No job id found: {str(e)}")
         context = {'parameters': {}}
 
-        input_dataset_version_id = '0199289e-c461-72c3-a371-ddbb41c9c479'
-        model_version_id = '01992959-312d-718a-952a-294b935bb1f8'
+        input_dataset_version_id = '019999c6-a74e-7e89-8ba5-6d8b0026bc61'
+        model_version_id = '0199c7ad-bb02-7ab1-88c5-c688081d2e4c'
 
     except KeyError as e:
         logging.error(f"No job id found: {str(e)}")
@@ -60,15 +59,15 @@ if __name__ == "__main__":
     confidence_threshold = parameters.get("confidence_threshold", 0.25)
     """image_size = parameters.get("image_size", 1024)
     model_type = parameters.get("model_type", "onnx")"""
-    image_size = parameters.get("image_size", 1524)
+    image_size = parameters.get("image_size", 2048)
     model_type = parameters.get("model_type", "torch")
+    max_detections = parameters.get("max_det", 5000)
 
     # if 'single_class' in parameters:
     #     if isinstance(parameters['single_class'], str):
     #         single_class = strtobool(val=parameters['single_class'])
     #     else:
     #         single_class = parameters['single_class']
-
 
     logging.info(f"Used parameters:")
     for k, v in parameters.items():
@@ -79,7 +78,8 @@ if __name__ == "__main__":
                                  model_version_id=model_version_id,
                                  parameters=parameters,
                                  img_size=image_size,
-                                 model_type=model_type)
+                                 model_type=model_type,
+                                 max_detections_per_image=max_detections)
 
     pre_annotator.setup_pre_annotation_job()
     pre_annotator.pre_annotate(confidence_threshold)

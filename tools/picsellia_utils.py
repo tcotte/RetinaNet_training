@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 import zipfile
 from fnmatch import fnmatch
 from typing import Union
@@ -47,9 +48,13 @@ def download_model_version(model_artifact: Union[Artifact, ModelFile], model_tar
     """
     model_artifact.download(target_path=model_target_path)
 
+    time.sleep(5)
+
     zip_file_path = os.path.join(model_target_path, os.listdir(model_target_path)[0])
     extract_zip_file(zip_file_path=zip_file_path,
                      destination_folder=model_target_path)
+
+    time.sleep(5)
 
     pth_file = find_files_in_recursive_dirs(root_directory=model_target_path, extension='pth')[0]
     destination_pth_file = os.path.join(model_target_path, os.path.basename(pth_file))

@@ -3,6 +3,7 @@ import os
 
 import torch
 from matplotlib import pyplot as plt
+from torch import GradScaler, autocast
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
@@ -32,7 +33,8 @@ def evaluate_one_epoch(model, val_data_loader, device, metric):
 
 
 def train_model(model, optimizer, train_data_loader, val_data_loader, lr_scheduler, lr_warmup, nb_epochs,
-                path_saved_models: str, loss_coefficients: dict, patience: int, device, callback):
+                path_saved_models: str, loss_coefficients: dict, patience: int, device, callback,
+                mixed_precision: bool = False):
     def _on_end_training():
         torch.save(model.state_dict(), os.path.join(path_saved_models, 'latest.pth'))
 
@@ -58,6 +60,9 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
     loss_training_hist = Averager()
     loss_validation_hist = Averager()
 
+    if mixed_precision:
+        scaler = GradScaler()
+
     for epoch in range(nb_epochs):
         loss_training_hist.reset()
         loss_validation_hist.reset()
@@ -77,20 +82,45 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                 - Sigmoid focal loss for classification
                 - l1 for regression
                 '''
-                loss_dict = model(images, targets)
-                loss_dict = apply_loss_weights(loss_dict=loss_dict, loss_coefficients=loss_coefficients)
+                if not mixed_precision:
+                    loss_dict = model(images, targets)
+                    loss_dict = apply_loss_weights(loss_dict=loss_dict, loss_coefficients=loss_coefficients)
 
-                total_loss = sum(loss for loss in loss_dict.values())
-                total_loss_value = total_loss.item()
+                    total_loss = sum(loss for loss in loss_dict.values())
+                    total_loss_value = total_loss.item()
 
-                loss_training_hist.send({
-                    "regression": loss_dict['bbox_regression'].item(),
-                    "classification": loss_dict['classification'].item(),
-                    "total": total_loss_value
-                })  # Average out the loss
+                    loss_training_hist.send({
+                        "regression": round(loss_dict['bbox_regression'].item(), 4),
+                        "classification": round(loss_dict['classification'].item(), 4),
+                        "total": round(total_loss_value, 4)
+                    })  # Average out the loss
 
-                total_loss.backward()
-                optimizer.step()
+                    total_loss.backward()
+                    optimizer.step()
+
+                else:
+                    # Use autocast to enable mixed-precision
+                    with autocast('cuda' if torch.cuda.is_available() else 'cpu'):
+                        loss_dict = model(images, targets)
+                        loss_dict = apply_loss_weights(loss_dict=loss_dict, loss_coefficients=loss_coefficients)
+
+                        total_loss = sum(loss for loss in loss_dict.values())
+                        total_loss_value = total_loss.item()
+
+                        loss_training_hist.send({
+                            "regression": round(loss_dict['bbox_regression'].item(), 4),
+                            "classification": round(loss_dict['classification'].item(), 4),
+                            "total": round(total_loss_value, 4)
+                        })  # Average out the loss
+
+                    # Backward pass with scaled gradients
+                    scaler.scale(total_loss).backward()
+
+                    # Optimizer step with gradient scaling
+                    scaler.step(optimizer)
+
+                    # Update the scaler
+                    scaler.update()
 
                 t_epoch.set_postfix(
                     total_loss=loss_training_hist.value['total'],

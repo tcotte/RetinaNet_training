@@ -2,16 +2,18 @@ import enum
 import logging
 import os
 from functools import partial
-from typing import Union, Tuple, Optional
+from typing import Callable, Dict, List, Optional, Tuple
+from typing import Union
 
 import torch
 import torchvision
-from torch import nn
+from torch import nn, Tensor
 from torchvision.models.detection import RetinaNet_ResNet50_FPN_V2_Weights
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
-from torchvision.models.detection.retinanet import RetinaNetClassificationHead, _default_anchorgen, RetinaNetHead, \
-    RetinaNet
+from torchvision.models.detection.retinanet import _default_anchorgen, RetinaNet
+from torchvision.models.detection.retinanet import _sum, RetinaNetHead, RetinaNetClassificationHead
+from torchvision.ops import sigmoid_focal_loss
 
 try:
     from ScaleNet.pytorch import scalenet
@@ -38,6 +40,8 @@ def build_retinanet_model(
         anchor_boxes_params: Union[dict, None] = None,
         fg_iou_thresh: float = 0.5,
         bg_iou_thresh: float = 0.4,
+        alpha_loss: float = 0.25,
+        gamma_loss: float = 2.0
 
 ):
     if trained_weights is None:
@@ -72,11 +76,13 @@ def build_retinanet_model(
                 **{k: v for k, v in anchor_boxes_params.items() if k != 'auto_size'})
 
     num_anchors = model.head.classification_head.num_anchors
-    model.head.classification_head = RetinaNetClassificationHead(
+    model.head.classification_head = CustomedLossClassificationHead(
         in_channels=256,
         num_anchors=num_anchors,
         num_classes=num_classes,
-        norm_layer=partial(torch.nn.GroupNorm, 32)
+        norm_layer=partial(torch.nn.GroupNorm, 32),
+        alpha_loss=alpha_loss,
+        gamma_loss=gamma_loss
     )
 
     if trained_weights is not None:
@@ -105,7 +111,10 @@ def build_model(
         backbone_type: BackboneType = BackboneType.ResNet,
         backbone_layers_nb: int = 50,
         add_P2_to_FPN: bool = False,
-        extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool) -> RetinaNet:
+        extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool,
+        alpha_loss: float = 0.25,
+        gamma_loss: float = 2.0
+) -> RetinaNet:
     backbone_fpn = build_backbone(backbone_type=backbone_type, size=backbone_layers_nb, add_P2_to_FPN=add_P2_to_FPN,
                                   extra_blocks=extra_blocks_FPN, trainable_backbone_layers=3,
                                   use_imageNet_pretrained_weights=use_imageNet_pretrained_weights)
@@ -141,11 +150,13 @@ def build_model(
                       )
 
     num_anchors = model.head.classification_head.num_anchors
-    model.head.classification_head = RetinaNetClassificationHead(
+    model.head.classification_head = CustomedLossClassificationHead(
         in_channels=256,
         num_anchors=num_anchors,
         num_classes=num_classes,
-        norm_layer=partial(torch.nn.GroupNorm, 32)
+        norm_layer=partial(torch.nn.GroupNorm, 32),
+        alpha_loss=alpha_loss,
+        gamma_loss=gamma_loss
     )
 
     if trained_weights is not None:
@@ -243,3 +254,69 @@ def build_backbone(backbone_type: BackboneType, use_imageNet_pretrained_weights:
 
 def collate_fn(batch):
     return tuple(zip(*batch))
+
+
+class CustomedLossClassificationHead(RetinaNetClassificationHead):
+    """
+    A classification head for use in RetinaNet.
+
+    Args:
+        in_channels (int): number of channels of the input feature
+        num_anchors (int): number of anchors to be predicted
+        num_classes (int): number of classes to be predicted
+        norm_layer (callable, optional): Module specifying the normalization layer to use. Default: None
+    """
+
+    _version = 2
+
+    def __init__(
+            self,
+
+            in_channels,
+            num_anchors,
+            num_classes,
+            prior_probability=0.01,
+            norm_layer: Optional[Callable[..., nn.Module]] = None,
+            alpha_loss: float = 0.25,
+            gamma_loss: float = 2.0,
+    ):
+        super(CustomedLossClassificationHead, self).__init__(in_channels, num_anchors, num_classes, prior_probability,
+                                                             norm_layer)
+
+        self._alpha_loss = alpha_loss
+        self._gamma_loss = gamma_loss
+
+    def compute_loss(self, targets, head_outputs, matched_idxs):
+        # type: (List[Dict[str, Tensor]], Dict[str, Tensor], List[Tensor]) -> Tensor
+        losses = []
+
+        cls_logits = head_outputs["cls_logits"]
+
+        for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
+            # determine only the foreground
+            foreground_idxs_per_image = matched_idxs_per_image >= 0
+            num_foreground = foreground_idxs_per_image.sum()
+
+            # create the target classification
+            gt_classes_target = torch.zeros_like(cls_logits_per_image)
+            gt_classes_target[
+                foreground_idxs_per_image,
+                targets_per_image["labels"][matched_idxs_per_image[foreground_idxs_per_image]],
+            ] = 1.0
+
+            # find indices for which anchors should be ignored
+            valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+
+            # compute the classification loss
+            losses.append(
+                sigmoid_focal_loss(
+                    cls_logits_per_image[valid_idxs_per_image],
+                    gt_classes_target[valid_idxs_per_image],
+                    reduction="sum",
+                    alpha=self._alpha_loss,
+                    gamma=self._gamma_loss
+                )
+                / max(1, num_foreground)
+            )
+
+        return _sum(losses) / len(targets)

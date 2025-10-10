@@ -29,7 +29,9 @@ from tools.retinanet_parameters import BackboneType, FPNExtraBlocks, AnchorBoxes
 
 
 class PreAnnotator:
-    def __init__(self, client, dataset_version_id, model_version_id, parameters: dict, img_size: int, model_type: str):
+    def __init__(self, client, dataset_version_id, model_version_id, parameters: dict, img_size: int, model_type: str,
+                 max_detections_per_image: int = 300):
+        self._max_detections_per_image = max_detections_per_image
         self.model: Optional[RetinaNet] = None
         self._is_onnx = True if model_type == 'onnx' else False
         self.client = client
@@ -43,7 +45,6 @@ class PreAnnotator:
         self.model_name = "model-latest" if not self._is_onnx else "model_latest_onnx"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.inference_size = (img_size, img_size)
-        self.max_det = parameters.get("max_det", 500)
 
         # self.dataset_version.delete_all_annotations()
 
@@ -246,7 +247,7 @@ class PreAnnotator:
 
         #  Convert predictions to Picsellia format
         rectangle_list: list = []
-        nb_box_limit = self.max_det
+        nb_box_limit = self._max_detections_per_image
         if len(boxes) < nb_box_limit:
             nb_box_limit = len(boxes)
         if len(boxes) > 0:
@@ -459,10 +460,10 @@ class PreAnnotator:
                                                  'augmentations_normalization_std'],
                                              anchor_boxes_params=anchor_boxes,
                                              fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
-                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh']
-                                             )
-                else:
+                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh'],
+                                             max_det=self._max_detections_per_image)
 
+                else:
                     self.model = build_model(num_classes=len(experiment.get_log('LabelMap').data),
                                              backbone_type=BackboneType[
                                                  experiment.get_log('All parameters').data['backbone_backbone_type']],
@@ -476,6 +477,7 @@ class PreAnnotator:
                                              trained_weights=self._model_weights_path,
                                              score_threshold=0.2,
                                              image_size=self.inference_size,
+                                             max_det=self._max_detections_per_image,
                                              # score_threshold=training_parameters.confidence_threshold,
                                              iou_threshold=0.2,
                                              unfrozen_layers=3,
@@ -485,8 +487,7 @@ class PreAnnotator:
                                                  'augmentations_normalization_std'],
                                              anchor_boxes_params=anchor_boxes,
                                              fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
-                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh']
-                                             )
+                                             bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh'])
 
                 self.model.eval()
                 self.model.to(self.device)

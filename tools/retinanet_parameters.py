@@ -44,6 +44,8 @@ class LearningRateParameters(BaseModel):
 class LossParameters(BaseModel):
     bbox_regression: float = 0.5
     classification: float = 0.5
+    alpha_loss: float = 0.25
+    gamma_loss: float = 0.25
 
 
 class NormalizationParameters(BaseModel):
@@ -141,22 +143,29 @@ class TrainingParameters(BaseModel):
     fg_iou_thresh: float = 0.5
     bg_iou_thresh: float = 0.4
     backbone: BackboneParameters = BackboneParameters()
-    version: int= 2
+    version: int= 2,
+    mixed_precision: bool = False
 
     # def transform_id_to_str(cls, value) -> str:
     #     return str(value)
 
-    @field_validator("single_class", "coco_pretrained_weights", mode='before')
-    def _transform_str_to_bool(value: Union[bool, str]) -> Union[bool, str]:
+    @field_validator("single_class", "coco_pretrained_weights", "mixed_precision", mode='before')
+    def _transform_str_to_bool(value: Union[bool, str, int]) -> Union[bool, str]:
         if isinstance(value, str):
             return bool(strtobool(value))
+
+        elif isinstance(value, int):
+            return bool(value)
 
         return value
 
     @field_validator("image_size", mode='before')
-    def _transform_int_to_tuple(value: Union[int, Tuple[int, int]]) -> Tuple[int, int]:
+    def _transform_int_to_tuple(value: Union[str, int, Tuple[int, int]]) -> Tuple[int, int]:
         if isinstance(value, int):
             return value, value
+
+        if isinstance(value, str):
+            return int(value), int(value)
 
         return value
 
@@ -226,6 +235,7 @@ if __name__ == '__main__':
 
     training_parameters = TrainingParameters(
         **{'single_class': 'True',
+           'mixed_precision': 1,
            'iou_threshold': 0.2,
            'coco_pretrained_weights': 'true',
            # 'image_size': 2,
@@ -257,6 +267,7 @@ if __name__ == '__main__':
     print(training_parameters.fg_iou_thresh)
     print(training_parameters.learning_rate)
     print(training_parameters.anchor_boxes)
+    print(training_parameters.mixed_precision)
 
 
 
