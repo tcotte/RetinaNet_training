@@ -43,8 +43,8 @@ if __name__ == "__main__":
         logging.error(f"No job id found: {str(e)}")
         context = {'parameters': {}}
 
-        input_dataset_version_id = '019999c6-a74e-7e89-8ba5-6d8b0026bc61'
-        model_version_id = '0199c7ad-bb02-7ab1-88c5-c688081d2e4c'
+        input_dataset_version_id = '019999e6-726a-7fb5-8687-afe3c1219dcd'
+        model_version_id = '0199dc88-523a-7dad-a7db-68f3503f336f'
 
     except KeyError as e:
         logging.error(f"No job id found: {str(e)}")
@@ -56,10 +56,10 @@ if __name__ == "__main__":
 
     parameters = context["parameters"]
 
-    confidence_threshold = parameters.get("confidence_threshold", 0.25)
+    confidence_threshold = parameters.get("confidence_threshold", 0.4)
     """image_size = parameters.get("image_size", 1024)
     model_type = parameters.get("model_type", "onnx")"""
-    image_size = parameters.get("image_size", 2048)
+    image_size = parameters.get("image_size", 2528)
     model_type = parameters.get("model_type", "torch")
     max_detections = parameters.get("max_det", 5000)
 

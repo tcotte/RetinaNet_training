@@ -3,13 +3,22 @@ import os
 
 import torch
 from matplotlib import pyplot as plt
-from torch import GradScaler, autocast
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
 
 from evaluator import plot_precision_recall_curve
 from utils import EarlyStopper, Averager, apply_loss_weights
+
+try:
+   from torch import GradScaler           # torch >= 2.3
+except ImportError:
+   from torch.cuda.amp import GradScaler  # torch < 2.3
+
+try:
+   from torch import autocast
+except ImportError:
+   from torch.cuda.amp import autocast
 
 
 def evaluate_one_epoch(model, val_data_loader, device, metric):

@@ -65,4 +65,6 @@ def download_model_version(model_artifact: Union[Artifact, ModelFile], model_tar
     [shutil.rmtree(dir_) for dir_ in subfolders]
     os.remove(zip_file_path)
 
+    print(destination_pth_file)
+
     return destination_pth_file

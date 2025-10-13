@@ -404,7 +404,7 @@ if __name__ == "__main__":
                                          patience=training_parameters.learning_rate.plateau.patience)
 
     warmup_scheduler = LinearWarmup(optimizer,
-                                    warmup_period=2000)
+                                    warmup_period=100)
 
     # Logger
     picsellia_logger = PicselliaLogger.from_picsellia_client_and_experiment(picsellia_experiment=experiment,

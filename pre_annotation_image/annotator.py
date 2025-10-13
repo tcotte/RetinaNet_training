@@ -155,6 +155,7 @@ class PreAnnotator:
             transformed_images = [image.to(self.device) for image in transformed_images]
 
             if not self._is_onnx:
+                self.model.topk_candidates = self._max_detections_per_image * 2
                 with torch.no_grad():
                     predictions = self.model(transformed_images)
             else:
@@ -446,7 +447,7 @@ class PreAnnotator:
                             experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
 
                 if experiment.get_log('All parameters').data['version'] == 2:
-                    self.model = build_retinanet_model(num_classes=len(experiment.get_log('LabelMap').data),
+                    self.model = build_retinanet_model(num_classes=len(self._get_model_version_labelmap(experiment)),
                                              use_COCO_pretrained_weights=False,
                                              trained_weights=self._model_weights_path,
                                              score_threshold=0.2,
@@ -464,7 +465,7 @@ class PreAnnotator:
                                              max_det=self._max_detections_per_image)
 
                 else:
-                    self.model = build_model(num_classes=len(experiment.get_log('LabelMap').data),
+                    self.model = build_model(num_classes=len(self._get_model_version_labelmap(experiment)),
                                              backbone_type=BackboneType[
                                                  experiment.get_log('All parameters').data['backbone_backbone_type']],
                                              add_P2_to_FPN=not experiment.get_log('All parameters').data[
@@ -498,6 +499,18 @@ class PreAnnotator:
 
         else:
             self._session = onnxruntime.InferenceSession(self._model_weights_path, providers=["CUDAExecutionProvider"])
+
+    @staticmethod
+    def _get_model_version_labelmap(experiment) -> Optional[dict]:
+        for labelmap_definition in ['LabelMap', 'labelmap', 'labelMap', 'Labelmap']:
+            try:
+                return experiment.get_log(labelmap_definition).data
+            except picsellia.exceptions.ResourceNotFoundError:
+                logging.info(f'{labelmap_definition} not found.')
+
+        logging.error('Labelmap not found')
+        return None
+
 
     def _get_model_labels(self) -> List[str]:
         """
