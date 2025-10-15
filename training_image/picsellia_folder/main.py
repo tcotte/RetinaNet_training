@@ -400,7 +400,7 @@ if __name__ == "__main__":
             mode='triangular2',
             base_lr=float(training_parameters.learning_rate.initial_lr)/4,
             max_lr=float(training_parameters.learning_rate.initial_lr),
-            step_size_up=10*len(train_dataloader))
+            step_size_up=10)
 
     else:
         if training_parameters.learning_rate.policy != 'plateau':
