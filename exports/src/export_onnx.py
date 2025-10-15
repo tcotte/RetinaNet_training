@@ -1,7 +1,9 @@
 import logging
 import os
 import sys
+from typing import Optional
 
+import picsellia
 import torch
 from picsellia import Client
 from picsellia.types.enums import JobRunStatus
@@ -13,6 +15,17 @@ from tools.model_retinanet import build_retinanet_model
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
+
+
+def get_model_version_labelmap(experiment) -> Optional[dict]:
+    for labelmap_definition in ['LabelMap', 'labelmap', 'labelMap', 'Labelmap']:
+        try:
+            return experiment.get_log(labelmap_definition).data
+        except picsellia.exceptions.ResourceNotFoundError:
+            logging.info(f'{labelmap_definition} not found.')
+
+    logging.error('Labelmap not found')
+    return None
 
 
 # https://github.com/pytorch/vision/issues/4395#issuecomment-1086658634
@@ -30,6 +43,10 @@ if __name__ == '__main__':
 
         model_artifact = experiment.get_artifact('model-latest')
 
+        confidence_threshold = 0.1
+        iou_threshold = 0.3
+        max_detections = 5000
+
     else:
         job_id = os.environ["job_id"]
         logging.info(f"Job ID: {job_id}")
@@ -37,6 +54,12 @@ if __name__ == '__main__':
         context = job.sync()
         model_version_id = context['model_version_processing_job']['input_model_version_id']
         model_version = client.get_model_version_by_id(model_version_id)
+
+        parameters = context["parameters"]
+
+        confidence_threshold = parameters.get("confidence_threshold", 0.3)
+        iou_threshold = parameters.get("iou_threshold", 0.3)
+        max_detections = parameters.get("max_det", 5000)
 
         # todo verify
         model_artifact = model_version.get_file('model-latest')
@@ -57,7 +80,7 @@ if __name__ == '__main__':
     normalization_mean_values = experiment_parameters['augmentations_normalization_mean']
     normalization_std_values = experiment_parameters['augmentations_normalization_std']
 
-    class_mapping = experiment.get_log('LabelMap').data
+    class_mapping = get_model_version_labelmap(experiment)
 
     # Load retinanet
     # pth_path = "/path/to/retinanet.pth"
@@ -69,14 +92,16 @@ if __name__ == '__main__':
 
     retinanet = build_retinanet_model(num_classes=len(class_mapping),
                                       use_COCO_pretrained_weights=False,
-                                      score_threshold=0.3,
-                                      iou_threshold=0.3,
+                                      score_threshold=confidence_threshold,
+                                      iou_threshold=iou_threshold,
                                       unfrozen_layers=experiment_parameters['unfreeze'],
                                       mean_values=normalization_mean_values,
                                       std_values=normalization_std_values,
                                       trained_weights=model_weights_path,
                                       anchor_boxes_params=anchor_boxes_params,
-                                      image_size=image_size)
+                                      image_size=image_size,
+                                      max_det=max_detections)
+    retinanet.topk_candidates = max_detections*2
 
     retinanet.eval()
 

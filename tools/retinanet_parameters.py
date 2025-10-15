@@ -126,6 +126,7 @@ class TrainingParameters(BaseModel):
     batch_size: int = 8
     device: str = 'cpu'
     device_name: Optional[str] = None
+    clr: bool = True
     learning_rate: LearningRateParameters = LearningRateParameters()
     weight_decay: float = 0.0005
     optimizer: str = 'Adam'
@@ -149,7 +150,7 @@ class TrainingParameters(BaseModel):
     # def transform_id_to_str(cls, value) -> str:
     #     return str(value)
 
-    @field_validator("single_class", "coco_pretrained_weights", "mixed_precision", mode='before')
+    @field_validator("single_class", "coco_pretrained_weights", "clr", "mixed_precision", mode='before')
     def _transform_str_to_bool(value: Union[bool, str, int]) -> Union[bool, str]:
         if isinstance(value, str):
             return bool(strtobool(value))

@@ -160,13 +160,14 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     break
 
             # update the learning rate
-            with lr_warmup.dampening():
-                if isinstance(lr_scheduler, ReduceLROnPlateau):
-                    lr_scheduler.step(total_val_loss.item())
-                elif isinstance(lr_scheduler, StepLR):
-                    lr_scheduler.step()
-                else:
-                    raise f'Invalid lr scheduler policy: {type(lr_scheduler)}'
+            if not isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
+                with lr_warmup.dampening():
+                    if isinstance(lr_scheduler, ReduceLROnPlateau):
+                        lr_scheduler.step(total_val_loss.item())
+                    elif isinstance(lr_scheduler, StepLR):
+                        lr_scheduler.step()
+                    else:
+                        raise f'Invalid lr scheduler policy: {type(lr_scheduler)}'
 
         # Evaluation
         validation_metrics = evaluate_one_epoch(model, val_data_loader, device, metric)

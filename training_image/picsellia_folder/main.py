@@ -394,14 +394,23 @@ if __name__ == "__main__":
                               weight_decay=training_parameters.weight_decay,
                               model_params=model.parameters())
 
-    if training_parameters.learning_rate.policy != 'plateau':
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                       step_size=training_parameters.learning_rate.decay.step_size,
-                                                       gamma=training_parameters.learning_rate.decay.gamma)
+    if training_parameters.clr:
+        lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
+            optimizer,
+            mode='triangular2',
+            base_lr=training_parameters.learning_rate.initial_lr/4,
+            max_lr=training_parameters.learning_rate.initial_lr,
+            step_size_up=10*len(train_dataloader))
+
     else:
-        lr_scheduler = ReduceLROnPlateau(optimizer, 'min',
-                                         factor=training_parameters.learning_rate.plateau.factor,
-                                         patience=training_parameters.learning_rate.plateau.patience)
+        if training_parameters.learning_rate.policy != 'plateau':
+            lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                           step_size=training_parameters.learning_rate.decay.step_size,
+                                                           gamma=training_parameters.learning_rate.decay.gamma)
+        else:
+            lr_scheduler = ReduceLROnPlateau(optimizer, 'min',
+                                             factor=training_parameters.learning_rate.plateau.factor,
+                                             patience=training_parameters.learning_rate.plateau.patience)
 
     warmup_scheduler = LinearWarmup(optimizer,
                                     warmup_period=100)
