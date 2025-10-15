@@ -169,6 +169,9 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     else:
                         raise f'Invalid lr scheduler policy: {type(lr_scheduler)}'
 
+            else:
+                lr_scheduler.step()
+
         # Evaluation
         validation_metrics = evaluate_one_epoch(model, val_data_loader, device, metric)
 

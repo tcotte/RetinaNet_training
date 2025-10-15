@@ -62,7 +62,7 @@ if __name__ == "__main__":
         mode='triangular2',
         base_lr=0.01,
         max_lr=0.1,
-        step_size_up=10)
+        step_size_up=10*len(trainloader))
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
     # optimizer,
     # T_0=20,
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
         # # Set model to training mode
         # model.train()
-        # for data, label in trainloader:
+        for data, label in trainloader:
         #     if torch.cuda.is_available():
         #         data, label = data.cuda(), label.cuda()
         #
@@ -112,11 +112,12 @@ if __name__ == "__main__":
         #     valid_loss += valid_step_loss.item() * data.size(0)
         # #
         # # Multiply the learning rate by 10 after each epoch
-        scheduler.step()
+            scheduler.step()
 
 
 
         curr_lr = optimizer.param_groups[0]['lr']
+        print(curr_lr)
         #
         # print(f'Epoch {e}\t \
         #         Training Loss: {train_loss / len(trainloader)}\t \

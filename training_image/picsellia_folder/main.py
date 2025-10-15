@@ -322,10 +322,10 @@ if __name__ == "__main__":
         path_root=dataset_root_folder,
         random_crop=training_parameters.augmentations.crop,
         augmentation_version=training_parameters.augmentations.version,
-        cutmix_prob=parameters['cutmix'] if 'cutmix' in parameters.keys() else 0.0,
-        mosaic_prob=parameters['mosaic'] if 'mosaic' in parameters.keys() else 0.0,
-        cutout_prob=parameters['cutout'] if 'cutout' in parameters.keys() else 0.0,
-        mixup_prob=parameters['mixup'] if 'mixup' in parameters.keys() else 0.0,
+        cutmix_prob=float(parameters['cutmix']) if 'cutmix' in parameters.keys() else 0.0,
+        mosaic_prob=float(parameters['mosaic']) if 'mosaic' in parameters.keys() else 0.0,
+        cutout_prob=float(parameters['cutout']) if 'cutout' in parameters.keys() else 0.0,
+        mixup_prob=float(parameters['mixup']) if 'mixup' in parameters.keys() else 0.0,
 
     )
 
@@ -390,7 +390,7 @@ if __name__ == "__main__":
     model.to(device)
 
     optimizer = get_optimizer(optimizer_name=training_parameters.optimizer,
-                              lr0=training_parameters.learning_rate.initial_lr,
+                              lr0=float(training_parameters.learning_rate.initial_lr),
                               weight_decay=training_parameters.weight_decay,
                               model_params=model.parameters())
 
@@ -398,8 +398,8 @@ if __name__ == "__main__":
         lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
             optimizer,
             mode='triangular2',
-            base_lr=training_parameters.learning_rate.initial_lr/4,
-            max_lr=training_parameters.learning_rate.initial_lr,
+            base_lr=float(training_parameters.learning_rate.initial_lr)/4,
+            max_lr=float(training_parameters.learning_rate.initial_lr),
             step_size_up=10*len(train_dataloader))
 
     else:
@@ -413,7 +413,7 @@ if __name__ == "__main__":
                                              patience=training_parameters.learning_rate.plateau.patience)
 
     warmup_scheduler = LinearWarmup(optimizer,
-                                    warmup_period=100)
+                                    warmup_period=10)
 
     # Logger
     picsellia_logger = PicselliaLogger.from_picsellia_client_and_experiment(picsellia_experiment=experiment,
