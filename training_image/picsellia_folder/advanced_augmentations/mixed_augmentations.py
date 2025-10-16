@@ -213,10 +213,16 @@ class CutMix(MixedAugmentations):
     ) -> np.ndarray:
         primary_bboxes = self.filter_bboxes_on_primary_image(bboxes=bboxes)
         secondary_bboxes = self.filter_bboxes_on_secondary_image()
-        concat_bboxes = np.concatenate((primary_bboxes, secondary_bboxes))
-        return clip_bboxes(bboxes=concat_bboxes,
-                           shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
+        try:
+            concat_bboxes = np.concatenate((primary_bboxes, secondary_bboxes))
+            return clip_bboxes(bboxes=concat_bboxes,
+                               shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
 
+        except ValueError as e:
+            print(f'Found bug with augmentations: {e}. \n'
+                  f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
+                  f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
+            return primary_bboxes
 
 class MixUp(MixedAugmentations):
     def __init__(self, target_size: tuple[int, int], p: float = 0.5, alpha: float = 0.62,
@@ -267,4 +273,10 @@ class MixUp(MixedAugmentations):
                                      shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
         secondary_bboxes = clip_bboxes(bboxes=self.secondary_bboxes,
                                        shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
-        return np.concatenate((primary_bboxes, secondary_bboxes))
+        try:
+            return np.concatenate((primary_bboxes, secondary_bboxes))
+        except ValueError as e:
+            print(f'Found bug with augmentations: {e}. \n'
+                  f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
+                  f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
+            return primary_bboxes

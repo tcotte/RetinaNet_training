@@ -282,18 +282,18 @@ class PascalVOCTestDataset(Dataset):
 if __name__ == '__main__':
     import albumentations as A
 
-    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test'
+    DATA_VALIDATION_DIR = r'C:\Users\tristan_cotte\PycharmProjects\datasets\train'
     IMAGE_SIZE = (1024, 1024)
     SINGLE_CLS = True
 
     train_transform = A.Compose([
         A.OneOf([
             # Cutout(p=0.5),
-            A.Resize(height=1024, width=1024, p=1),
-            MixUp(p=0.25, target_size=(1024, 1024)),
-            CutMix(p=0.25, target_size=(1024, 1024)),
-            CutOut(p=0.25, target_size=(1024, 1024)),
-            A.Mosaic(p=0.25, target_size=(1024, 1024))
+            # A.Resize(height=1024, width=1024, p=1),
+            MixUp(p=1, target_size=(1024, 1024)),
+            CutMix(p=1, target_size=(1024, 1024)),
+            # CutOut(p=0.3, target_size=(1024, 1024)),
+            # A.Mosaic(p=1, target_size=(1024, 1024))
 
             # MixUp(p=0.25, target_size=(1024, 1024)),
         ], p=1),
@@ -349,13 +349,14 @@ if __name__ == '__main__':
 
     # for i in val_dataset[:8]:
     # print(val_dataset[0][0])
-    for i in range(8):
-        sample = next(iter(val_loader))
-        torch_image = sample[0][i]
-        annotations = sample[1][i]
-        image = torch.permute(torch_image, (1, 2, 0)).numpy()
-        image = np.ascontiguousarray(image, dtype=np.float32)
-        for bbox in annotations['boxes']:
-            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
-        plt.imshow(image)
-        plt.show()
+    for e in tqdm(range(10000)):
+        for torch_image, label, _ in val_loader:
+            print(e)
+            # # sample = next(iter(val_loader))
+            # annotations = label[0]
+            # image = torch.permute(torch_image[0], (1, 2, 0)).numpy()
+            # image = np.ascontiguousarray(image, dtype=np.float32)
+            # for bbox in annotations['boxes']:
+            #     cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            # plt.imshow(image)
+            # plt.show()

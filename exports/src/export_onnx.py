@@ -91,7 +91,7 @@ if __name__ == '__main__':
     }
 
     retinanet = build_retinanet_model(num_classes=len(class_mapping),
-                                      use_COCO_pretrained_weights=False,
+                                      use_COCO_pretrained_weights=True,
                                       score_threshold=confidence_threshold,
                                       iou_threshold=iou_threshold,
                                       unfrozen_layers=experiment_parameters['unfreeze'],
@@ -101,7 +101,7 @@ if __name__ == '__main__':
                                       anchor_boxes_params=anchor_boxes_params,
                                       image_size=image_size,
                                       max_det=max_detections)
-    retinanet.topk_candidates = max_detections*2
+    # retinanet.topk_candidates = max_detections*2
 
     retinanet.eval()
 

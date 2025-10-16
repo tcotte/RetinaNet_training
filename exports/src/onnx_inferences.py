@@ -14,7 +14,7 @@ import sys
 
 from torchmetrics.detection import MeanAveragePrecision
 
-sys.path.insert(0, os.path.join(os.getcwd(), r'training_image\picsellia_folder'))
+sys.path.insert(0, os.path.join(os.getcwd(), r'..\..\training_image\picsellia_folder'))
 
 from training_image.picsellia_folder.dataset import PascalVOCDataset
 from tools.model_retinanet import collate_fn, build_retinanet_model
@@ -53,7 +53,7 @@ def to_numpy(tensor):
 
 
 ONNX_MODEL_PATH: typing.Final[str] = (
-    r'exports/models/8015ef96-006d-49cf-a7b0-66313f83d3ba-retinanet.onnx')
+    r'../../models/retinanet.onnx')
 
 if __name__ == '__main__':
     # torch.backends.cudnn.benchmark = True
@@ -85,17 +85,17 @@ if __name__ == '__main__':
     normalization_std_values = experiment_parameters['augmentations_normalization_std']
 
     # load pt model
-    model_weights_path = r'exports/models/8015ef96-006d-49cf-a7b0-66313f83d3ba-retinanet.pth'
+    model_weights_path = r'../../models/latest.pth'
     anchor_boxes_params = {
         'sizes': experiment_parameters['anchor_boxes_sizes'],
         'aspect_ratios': experiment_parameters['anchor_boxes_aspect_ratios']
     }
 
-    torch_model = build_retinanet_model(num_classes=len(experiment.get_log('LabelMap').data),
+    torch_model = build_retinanet_model(num_classes=len(experiment.get_log('labelmap').data),
                                         image_size=image_size,
                                         use_COCO_pretrained_weights=False,
-                                        score_threshold=0.2,
-                                        iou_threshold=0.2,
+                                        score_threshold=0.3,
+                                        iou_threshold=0.3,
                                         unfrozen_layers=experiment_parameters['unfreeze'],
                                         mean_values=normalization_mean_values,
                                         std_values=normalization_std_values,
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
     val_dataset = PascalVOCDataset(
-        data_folder=r"C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test",
+        data_folder=r"C:\Users\tristan_cotte\PycharmProjects\datasets\val",
         split='test',
         single_cls=True,
         transform=valid_transform)
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     # compute ONNX Runtime output prediction
     nb_img = 0
-    for images, targets in data_loader:
+    for images, targets, _ in data_loader:
 
         targets_gpu = [{k: v.to(device=device, non_blocking=True) for k, v in target.items()} for target in targets]
 
@@ -156,6 +156,9 @@ if __name__ == '__main__':
         ort_predictions = np.hstack((ort_outs[0],
                                      np.expand_dims(ort_outs[2], axis=1),
                                      np.expand_dims(ort_outs[1], axis=1)))
+
+        indices = np.where(ort_predictions[:, 5] > 0.3)
+        ort_predictions = ort_predictions[indices]
 
         print(ort_predictions.shape)
 
@@ -187,7 +190,7 @@ if __name__ == '__main__':
 
         nb_img += 1
 
-        #plt.savefig(rf'C:\Users\tristan_cotte\SGS\FR-ST-Performance Opérationnelle - Documents\06- R&D Automation\01 - Projets par Site\04 - Brest\05 - Microbiologie classique\07- AI models\RetinaNet\Inferences_CA\output_inference\inference_{nb_img}.png')
+        plt.savefig(rf'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\output\inference_{nb_img}.png')
 
         metric_torch_model.update([torch_outputs], targets_gpu)
 

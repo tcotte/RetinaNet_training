@@ -46,7 +46,7 @@ def to_numpy(tensor):
 
 
 ONNX_MODEL_PATH: typing.Final[str] = (
-    r'../models/8015ef96-006d-49cf-a7b0-66313f83d3ba-retinanet.onnx')
+    r'../../models/retinanet.onnx')
 
 if __name__ == '__main__':
     # torch.backends.cudnn.benchmark = True
@@ -108,9 +108,9 @@ if __name__ == '__main__':
 
     # compute ONNX Runtime output prediction
     nb_img = 0
-    for image in list(imutils.paths.list_images(r"C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test")):
+    for image in list(imutils.paths.list_images(r"C:\Users\tristan_cotte\Downloads")):
         image = cv2.imread(image)
-        image = cv2.resize(image, (1024, 1024))
+        image = cv2.resize(image, (2048, 2048))
 
         input_image = image.copy()
         input_image = input_image/255.
@@ -141,6 +141,8 @@ if __name__ == '__main__':
         ort_predictions = np.hstack((ort_outs[0],
                                      np.expand_dims(ort_outs[2], axis=1),
                                      np.expand_dims(ort_outs[1], axis=1)))
+        indices = np.where(ort_predictions[:, 5] > 0.4)
+        ort_predictions = ort_predictions[indices]
 
         print(ort_predictions.shape)
 
