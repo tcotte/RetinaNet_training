@@ -213,16 +213,11 @@ class CutMix(MixedAugmentations):
     ) -> np.ndarray:
         primary_bboxes = self.filter_bboxes_on_primary_image(bboxes=bboxes)
         secondary_bboxes = self.filter_bboxes_on_secondary_image()
-        try:
-            concat_bboxes = np.concatenate((primary_bboxes, secondary_bboxes))
-            return clip_bboxes(bboxes=concat_bboxes,
-                               shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
 
-        except ValueError as e:
-            print(f'Found bug with augmentations: {e}. \n'
-                  f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
-                  f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
-            return primary_bboxes
+        concat_bboxes = concatenate_mixed_aug_bboxes(primary_bboxes=primary_bboxes, secondary_bboxes=secondary_bboxes)
+        return clip_bboxes(bboxes=concat_bboxes,
+                           shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
+
 
 class MixUp(MixedAugmentations):
     def __init__(self, target_size: tuple[int, int], p: float = 0.5, alpha: float = 0.62,
@@ -273,10 +268,23 @@ class MixUp(MixedAugmentations):
                                      shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
         secondary_bboxes = clip_bboxes(bboxes=self.secondary_bboxes,
                                        shape=ShapeType({'height': self.target_size[0], 'width': self.target_size[1]}))
-        try:
-            return np.concatenate((primary_bboxes, secondary_bboxes))
-        except ValueError as e:
-            print(f'Found bug with augmentations: {e}. \n'
-                  f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
-                  f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
-            return primary_bboxes
+
+        return concatenate_mixed_aug_bboxes(primary_bboxes=primary_bboxes, secondary_bboxes=secondary_bboxes)
+
+
+
+def concatenate_mixed_aug_bboxes(primary_bboxes: np.ndarray, secondary_bboxes: np.ndarray) -> np.ndarray:
+    if primary_bboxes.shape[1] == 4:
+        print(f'Found bug with augmentations: return only secondary bboxes \n'
+              f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
+              f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
+        return secondary_bboxes
+
+    elif secondary_bboxes.shape[1] == 4:
+        print(f'Found bug with augmentations: return only primary bboxes \n'
+              f'Primary boxes: {primary_bboxes} / shape: {primary_bboxes.shape} \n'
+              f'Secondary boxes: {secondary_bboxes} / shape: {secondary_bboxes.shape} \n')
+        return primary_bboxes
+
+    else:
+        return np.concatenate((primary_bboxes, secondary_bboxes))
