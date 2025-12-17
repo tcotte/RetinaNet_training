@@ -114,7 +114,7 @@ class PicselliaLogger:
             logging.warn(f"Precision-recall curve not found at {path_precision_recall_plot}")
             pass
 
-        self._experiment.update(status=ExperimentStatus.TERMINATED)
+        self._experiment.update(status=ExperimentStatus.SUCCESS)
 
     def store_model(self, model_path: str, model_name: str) -> None:
         try:

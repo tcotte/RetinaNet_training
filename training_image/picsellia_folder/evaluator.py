@@ -102,34 +102,35 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         with torch.no_grad():
             predictions = model(images)
             metric.update(predictions, targets)
+            # print(metric.compute()['map_50'])
 
-        for idx in range(len(images)):
-            asset = dataset_version.find_asset(filename=file_paths[idx])
-
-            resized_image_height, resized_image_width = images[idx].size()[-2:]
-            original_height = asset.height
-            original_width = asset.width
-
-            # calculate the scale factors for width and height
-            width_scale = original_width / resized_image_width
-            height_scale = original_height / resized_image_height
-
-            picsellia_rectangles: list = []
-            for box, label, score in zip(predictions[idx]['boxes'], predictions[idx]['labels'],
-                                         predictions[idx]['scores']):
-                box = box.cpu().numpy()
-                label = int(np.squeeze(label.cpu().numpy()))
-                score = float(np.squeeze(score.cpu().numpy()))
-                rectangle = (int(round(box[0] * width_scale)),
-                             int(round(box[1] * height_scale)),
-                             int(round((box[2] - box[0]) * width_scale)),
-                             int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label - 1],
-                             score)
-                picsellia_rectangles.append(rectangle)
-
-            experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
-
+        # for idx in range(len(images)):
+        #     asset = dataset_version.find_asset(filename=file_paths[idx])
+        #
+        #     resized_image_height, resized_image_width = images[idx].size()[-2:]
+        #     original_height = asset.height
+        #     original_width = asset.width
+        #
+        #     # calculate the scale factors for width and height
+        #     width_scale = original_width / resized_image_width
+        #     height_scale = original_height / resized_image_height
+        #
+        #     picsellia_rectangles: list = []
+        #     for box, label, score in zip(predictions[idx]['boxes'], predictions[idx]['labels'],
+        #                                  predictions[idx]['scores']):
+        #         box = box.cpu().numpy()
+        #         label = int(np.squeeze(label.cpu().numpy()))
+        #         score = float(np.squeeze(score.cpu().numpy()))
+        #         rectangle = (int(round(box[0] * width_scale)),
+        #                      int(round(box[1] * height_scale)),
+        #                      int(round((box[2] - box[0]) * width_scale)),
+        #                      int(round((box[3] - box[1]) * height_scale)),
+        #                      picsellia_labels[label - 1],
+        #                      score)
+        #         picsellia_rectangles.append(rectangle)
+        #
+        #     experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
+    print(metric.compute())
     log_final_metrics(results=metric.compute())
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
@@ -147,7 +148,8 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model_weights_path = '...'
+    model_weights_path = r'C:\Users\tristan_cotte\Downloads\3553b2ca-a4c1-4d9e-90f8-6788157c4ff3-latest\content\saved_models\latest.pth'
+    test_dataset_path = r'C:\Users\tristan_cotte\PycharmProjects\datasets\test'
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
     if device.type == 'cuda':
@@ -168,7 +170,7 @@ if __name__ == '__main__':
                                   anchor_boxes_params=training_parameters.anchor_boxes,
                                   fg_iou_thresh=training_parameters.fg_iou_thresh,
                                   bg_iou_thresh=training_parameters.bg_iou_thresh,
-                                  image_size=(1024, 1024)
+                                  image_size=(2048, 2048)
                                   )
     model.anchor_generator = AnchorGenerator(
         sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
@@ -180,7 +182,7 @@ if __name__ == '__main__':
 
     # dataset
     # image_size = experiment.get_log('All parameters').data['image_size']
-    image_size = (1024, 1024)
+    image_size = (2048, 2048)
     random_crop = False
 
     valid_transform = A.Compose([
@@ -194,7 +196,7 @@ if __name__ == '__main__':
     # )
 
     test_dataset = PascalVOCDataset(
-        data_folder='...',
+        data_folder= test_dataset_path,
         split='test',
         single_cls=True,
         transform=valid_transform)
@@ -208,4 +210,4 @@ if __name__ == '__main__':
     )
 
     fill_picsellia_evaluation_tab(model=model, data_loader=val_data_loader, experiment=experiment,
-                                  dataset_version_name='test', device=device)
+                                  dataset_version_name='val', device=device)

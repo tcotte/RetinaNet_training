@@ -13,38 +13,41 @@ os.environ["PICSELLIA_SDK_SECTION_HANDLER"] = "1"
 from datetime import datetime
 from picsellia.types.enums import JobRunStatus
 import logging
-import torch
+"""import torch
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'"""
 
 
 
 logging.getLogger('picsellia').setLevel(logging.INFO)
 # os.chdir('yolov8_pre_annotation')
-command = "python3.12 src/pre_annotation_image/main.py"
+print('launch processing')
+command = "python3.12 /src/pre_annotation_image/main.py"
 
-print(f"Using device: {device}")
+print('is file: ', os.path.isfile("/src/pre_annotation_image/main.py"))
+
+# print(f"Using device: {device}")
 
 
-if 'api_token' not in os.environ:
-    raise RuntimeError("You must set an api_token to run this image")
-
-if 'job_id' not in os.environ:
-    raise RuntimeError("No job_id found in env. variables")
-
-api_token = os.environ["api_token"]
-organization_id = os.environ["organization_id"]
-job_id = os.environ["job_id"]
-
-client = Client(
-    api_token=api_token,
-    organization_id=organization_id
-)
-
-job = client.get_job_by_id(job_id)
-job.update_job_run_with_status(JobRunStatus.RUNNING)
+# if 'api_token' not in os.environ:
+#     raise RuntimeError("You must set an api_token to run this image")
+#
+# if 'job_id' not in os.environ:
+#     raise RuntimeError("No job_id found in env. variables")
+#
+# api_token = os.environ["api_token"]
+# organization_id = os.environ["organization_id"]
+# job_id = os.environ["job_id"]
+#
+# client = Client(
+#     api_token=api_token,
+#     organization_id=organization_id
+# )
+#
+# job = client.get_job_by_id(job_id)
+# job.update_job_run_with_status(JobRunStatus.RUNNING)
 process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-part = "--#--Start processing"
+"""part = "--#--Start processing"
 replace_log = False
 buffer = []
 start_buffer = False
@@ -58,7 +61,7 @@ logs[part] = {
     'datetime': str(datetime.now().isoformat()),
     'logs': {}
 }
-last_line = ""
+last_line = """""
 while True:
     output = process.stdout.readline()
     if output.decode("utf-8") == '' and process.poll() is not None:

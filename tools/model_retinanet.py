@@ -67,6 +67,8 @@ def build_retinanet_model(
         max_size=max(*image_size)
     )
 
+    model.topk_candidates = max_det * 2
+
     if anchor_boxes_params is not None:
         if not isinstance(anchor_boxes_params, dict):
             model.anchor_generator = AnchorGenerator(

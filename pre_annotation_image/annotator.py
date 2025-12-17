@@ -36,6 +36,7 @@ class PreAnnotator:
         self._is_onnx = True if model_type == 'onnx' else False
         self.client = client
         self.dataset_version: DatasetVersion = client.get_dataset_version_by_id(dataset_version_id)
+        self.dataset_version.delete_all_annotations()
         self.model_version: ModelVersion = client.get_model_version_by_id(model_version_id)
         self.parameters = parameters
 
@@ -252,7 +253,7 @@ class PreAnnotator:
         if len(boxes) < nb_box_limit:
             nb_box_limit = len(boxes)
         if len(boxes) > 0:
-            annotation: Annotation = asset.create_annotation(duration=0.0)
+            annotation: Annotation = asset.create_annotation(duration=0.5)
         else:
             return
         for i in range(nb_box_limit):

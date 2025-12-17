@@ -1,0 +1,33 @@
+FROM picsellia/cuda:12.9.1-cudnn-ubuntu24.04-python3.12
+#FROM nvcr.io/nvidia/pytorch:24.01-py3
+#FROM  nvcr.io/nvidia/pytorch:22.07-py3
+#FROM picsellia/cuda:12.9.1-cudnn-ubuntu24.04-python3.12
+
+
+COPY training_image/requirements.txt .
+
+RUN  rm /usr/lib/python3.12/EXTERNALLY-MANAGED
+
+RUN pip3 install -r requirements.txt --trusted-host developer.download.nvidia.com
+#
+## https://github.com/albumentations-team/albumentations/issues/1043#issuecomment-2624240007
+#
+##RUN pip install numpy==1.26.4
+##RUN pip install opencv-python==4.7.0.72
+##RUN pip install torchmetrics --upgrade
+#
+##RUN pip install -r requirements.txt
+#
+#
+WORKDIR /picsellia_folder
+
+COPY training_image/picsellia_folder .
+
+COPY tools tools/.
+
+RUN mkdir -p /saved_models && chmod 777 /saved_models
+RUN mkdir -p /datasets && chmod 777 /datasets
+RUN mkdir -p /run && chmod 777 /run
+RUN chmod 777 ./
+
+ENTRYPOINT ["python", "main.py"]

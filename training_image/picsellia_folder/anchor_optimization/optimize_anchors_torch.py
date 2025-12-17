@@ -441,14 +441,15 @@ def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int]
             })
 
         else:
-            df_temp = pd.DataFrame({
-                'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
-                'x0': np.array(dict_['boxes'])[:, 0],
-                'y0': np.array(dict_['boxes'])[:, 1],
-                'x1': np.array(dict_['boxes'])[:, 2],
-                'y1': np.array(dict_['boxes'])[:, 3]
-            })
-            df = pd.concat([df, df_temp])
+            if not len(np.array(dict_['boxes'])) == 0:
+                df_temp = pd.DataFrame({
+                    'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
+                    'x0': np.array(dict_['boxes'])[:, 0],
+                    'y0': np.array(dict_['boxes'])[:, 1],
+                    'x1': np.array(dict_['boxes'])[:, 2],
+                    'y1': np.array(dict_['boxes'])[:, 3]
+                })
+                df = pd.concat([df, df_temp])
 
     df.to_csv(temp_csv_filepath, header=None, index=False)
 
