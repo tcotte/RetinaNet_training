@@ -1,11 +1,14 @@
 import os
+import shutil
+import zipfile
 from typing import List, Dict
 
 import numpy as np
+import picsellia
 import torch
 from matplotlib import pyplot as plt
 from picsellia import Experiment, Client
-from picsellia.types.enums import InferenceType, LogType
+from picsellia.types.enums import InferenceType, LogType, AnnotationFileType
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
@@ -104,37 +107,36 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
             metric.update(predictions, targets)
             # print(metric.compute()['map_50'])
 
-        # for idx in range(len(images)):
-        #     asset = dataset_version.find_asset(filename=file_paths[idx])
-        #
-        #     resized_image_height, resized_image_width = images[idx].size()[-2:]
-        #     original_height = asset.height
-        #     original_width = asset.width
-        #
-        #     # calculate the scale factors for width and height
-        #     width_scale = original_width / resized_image_width
-        #     height_scale = original_height / resized_image_height
-        #
-        #     picsellia_rectangles: list = []
-        #     for box, label, score in zip(predictions[idx]['boxes'], predictions[idx]['labels'],
-        #                                  predictions[idx]['scores']):
-        #         box = box.cpu().numpy()
-        #         label = int(np.squeeze(label.cpu().numpy()))
-        #         score = float(np.squeeze(score.cpu().numpy()))
-        #         rectangle = (int(round(box[0] * width_scale)),
-        #                      int(round(box[1] * height_scale)),
-        #                      int(round((box[2] - box[0]) * width_scale)),
-        #                      int(round((box[3] - box[1]) * height_scale)),
-        #                      picsellia_labels[label - 1],
-        #                      score)
-        #         picsellia_rectangles.append(rectangle)
-        #
-        #     experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
-    print(metric.compute())
+        for idx in range(len(images)):
+            asset = dataset_version.find_asset(filename=file_paths[idx])
+
+            resized_image_height, resized_image_width = images[idx].size()[-2:]
+            original_height = asset.height
+            original_width = asset.width
+
+            # calculate the scale factors for width and height
+            width_scale = original_width / resized_image_width
+            height_scale = original_height / resized_image_height
+
+            picsellia_rectangles: list = []
+            for box, label, score in zip(predictions[idx]['boxes'], predictions[idx]['labels'],
+                                         predictions[idx]['scores']):
+                box = box.cpu().numpy()
+                label = int(np.squeeze(label.cpu().numpy()))
+                score = float(np.squeeze(score.cpu().numpy()))
+                rectangle = (int(round(box[0] * width_scale)),
+                             int(round(box[1] * height_scale)),
+                             int(round((box[2] - box[0]) * width_scale)),
+                             int(round((box[3] - box[1]) * height_scale)),
+                             picsellia_labels[label],
+                             score)
+                picsellia_rectangles.append(rectangle)
+
+            experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
     log_final_metrics(results=metric.compute())
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
-    # job.wait_for_done()
+    job.wait_for_done()
 
 
 if __name__ == '__main__':
@@ -148,8 +150,10 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model_weights_path = r'C:\Users\tristan_cotte\Downloads\3553b2ca-a4c1-4d9e-90f8-6788157c4ff3-latest\content\saved_models\latest.pth'
-    test_dataset_path = r'C:\Users\tristan_cotte\PycharmProjects\datasets\test'
+    # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
+
+    model_weights_path = r''
+    test_dataset_path = r''
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
     if device.type == 'cuda':
@@ -159,7 +163,7 @@ if __name__ == '__main__':
     model = build_retinanet_model(num_classes=2,
                                   use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
                                   trained_weights=model_weights_path,
-                                  score_threshold=0.2,
+                                  score_threshold=0.25,
                                   # score_threshold=training_parameters.confidence_threshold,
                                   iou_threshold=0.1,
                                   unfrozen_layers=training_parameters.unfreeze,
