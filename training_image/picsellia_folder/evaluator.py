@@ -128,7 +128,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
                              int(round(box[1] * height_scale)),
                              int(round((box[2] - box[0]) * width_scale)),
                              int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label],
+                             picsellia_labels[label - 1],
                              score)
                 picsellia_rectangles.append(rectangle)
 
@@ -136,7 +136,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
     log_final_metrics(results=metric.compute())
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
-    job.wait_for_done()
+    # job.wait_for_done()
 
 
 if __name__ == '__main__':
@@ -152,8 +152,8 @@ if __name__ == '__main__':
 
     # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
 
-    model_weights_path = r''
-    test_dataset_path = r''
+    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\models\mix_ft.pth'
+    test_dataset_path = r'./dataset/val'
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
     if device.type == 'cuda':

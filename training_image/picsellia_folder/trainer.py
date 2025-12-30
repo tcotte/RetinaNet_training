@@ -184,14 +184,23 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
           IoU thresholds, ``K`` is the number of classes, ``A`` is the number of areas and ``M`` is the number
           of max detections per image
         '''
+        try:
+            precision = float(validation_metrics['precision'][0][25][0][0][-1])
+        except IndexError:
+            precision = 0.0
+
+        try:
+            recall = float(validation_metrics['recall'][0][0][0][-1])
+        except IndexError:
+            recall = 0.0
 
         logging.info(f"Epoch #{epoch + 1} Training loss: {loss_training_hist.value} "
                      f"Validation loss {loss_validation_hist.value}"
                      f"- Accuracies: 'mAP' {float(validation_metrics['map']):.3} / "
                      f"'mAP[50]': {float(validation_metrics['map_50']):.3} / "
                      f"'mAP[75]': {float(validation_metrics['map_75']):.3} /"
-                     f"'Precision': {float(validation_metrics['precision'][0][25][0][0][-1]):.3} / "
-                     f"'Recall': {float(validation_metrics['recall'][0][0][0][-1]):.3} ")
+                     f"'Precision': {precision:.3} / "
+                     f"'Recall': {recall:.3} ")
         if validation_metrics['map'] >= best_map:
             best_map = float(validation_metrics['map'])
             torch.save(model.state_dict(), os.path.join(path_saved_models, 'best.pth'))
@@ -202,8 +211,8 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                                   'map': float(validation_metrics['map']),
                                   'mAP[50]': float(validation_metrics['map_50']),
                                   'mAP[75]': float(validation_metrics['map_75']),
-                                  'precision': float(validation_metrics['precision'][0][25][0][0][-1]),
-                                  'recall': float(validation_metrics['recall'][0][0][0][-1])
+                                  'precision': float(precision),
+                                  'recall': float(recall)
                               },
                               current_lr=optimizer.param_groups[0]['lr'])
 

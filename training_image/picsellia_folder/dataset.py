@@ -150,9 +150,13 @@ class PascalVOCDataset(Dataset):
 
     @staticmethod
     def remove_duplicate_labels(boxes, labels):
-        boxes_labels_stack = np.hstack((np.array(boxes), np.expand_dims(np.array(labels), axis=1)))
-        boxes_labels_stack_without_duplicate = np.unique(boxes_labels_stack, axis=0)
-        return boxes_labels_stack_without_duplicate[:, :4], boxes_labels_stack_without_duplicate[:, -1]
+        if len(boxes) == 0:
+            return [], []
+
+        else:
+            boxes_labels_stack = np.hstack((np.array(boxes), np.expand_dims(np.array(labels), axis=1)))
+            boxes_labels_stack_without_duplicate = np.unique(boxes_labels_stack, axis=0)
+            return boxes_labels_stack_without_duplicate[:, :4], boxes_labels_stack_without_duplicate[:, -1]
 
     def __getitem__(self, i):
         # Read annotation_files in this image (bounding boxes, labels, difficulties)

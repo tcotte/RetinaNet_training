@@ -5,7 +5,10 @@ import pandas as pd
 from pandas import read_csv
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 
-from .utils_anchor_boxes.compute_overlap import compute_overlap
+try:
+    from .utils_anchor_boxes.compute_overlap import compute_overlap
+except ImportError:
+    from utils_anchor_boxes.compute_overlap import compute_overlap
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 import os
@@ -17,7 +20,6 @@ from PIL import Image
 import sys
 
 import xml.etree.ElementTree as ET
-
 
 # global variable
 global state
@@ -425,31 +427,31 @@ def parse_annotations(xml_file: str):
     return {'boxes': boxes, 'image': image_name}
 
 
-def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int], temp_csv_filepath: str = 'labels.csv') -> dict:
+def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int],
+                              temp_csv_filepath: str = 'labels.csv') -> dict:
     image_path = os.path.join(os.path.dirname(annotations_path), 'JPEGImages')
+
+    df = pd.DataFrame({
+        'filename': [],
+        'x0': [],
+        'y0': [],
+        'x1': [],
+        'y1': []
+    })
+
     for index, annotation_file in enumerate(os.listdir(annotations_path)):
         full_annotation_path = os.path.join(annotations_path, annotation_file)
         dict_ = parse_annotations(full_annotation_path)
 
-        if index == 0:
-            df = pd.DataFrame({
+        if not len(np.array(dict_['boxes'])) == 0:
+            df_temp = pd.DataFrame({
                 'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
                 'x0': np.array(dict_['boxes'])[:, 0],
                 'y0': np.array(dict_['boxes'])[:, 1],
                 'x1': np.array(dict_['boxes'])[:, 2],
                 'y1': np.array(dict_['boxes'])[:, 3]
             })
-
-        else:
-            if not len(np.array(dict_['boxes'])) == 0:
-                df_temp = pd.DataFrame({
-                    'filename': [os.path.join(image_path, dict_['image'])] * len(dict_['boxes']),
-                    'x0': np.array(dict_['boxes'])[:, 0],
-                    'y0': np.array(dict_['boxes'])[:, 1],
-                    'x1': np.array(dict_['boxes'])[:, 2],
-                    'y1': np.array(dict_['boxes'])[:, 3]
-                })
-                df = pd.concat([df, df_temp])
+            df = pd.concat([df, df_temp])
 
     df.to_csv(temp_csv_filepath, header=None, index=False)
 
@@ -460,34 +462,3 @@ def compute_optimized_anchors(annotations_path: str, image_size: Tuple[int, int]
     os.remove(temp_csv_filepath)
     return optimized_anchor_boxes_params
 
-if __name__ == '__main__':
-    annotations_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\training_image\datasets\test\Annotations'
-    output_csv_path: str = r'C:\Users\Tristan_COTTE\PycharmProjects\RetinaNet_training\labels.csv'
-
-    for index, annotation_file in enumerate(os.listdir(annotations_path)):
-        full_annotation_path = os.path.join(annotations_path, annotation_file)
-        dict_ = parse_annotations(full_annotation_path)
-
-        if index == 0:
-            df = pd.DataFrame({
-                'filename': [dict_['image']] * len(dict_['boxes']),
-                'x0': np.array(dict_['boxes'])[:, 0],
-                'y0': np.array(dict_['boxes'])[:, 1],
-                'x1': np.array(dict_['boxes'])[:, 2],
-                'y1': np.array(dict_['boxes'])[:, 3]
-            })
-
-        else:
-            df_temp = pd.DataFrame({
-                'filename': [dict_['image']] * len(dict_['boxes']),
-                'x0': np.array(dict_['boxes'])[:, 0],
-                'y0': np.array(dict_['boxes'])[:, 1],
-                'x1': np.array(dict_['boxes'])[:, 2],
-                'y1': np.array(dict_['boxes'])[:, 3]
-            })
-            df = pd.concat([df, df_temp])
-
-    df.to_csv(output_csv_path, header=None, index=False)
-
-    res = anchors_optimize(annotations=output_csv_path)
-    print(res)

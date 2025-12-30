@@ -26,30 +26,11 @@ from picsellia_logger import PicselliaLogger
 from tools.retinanet_parameters import TrainingParameters
 from trainer import train_model
 from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
-from utils import read_yaml_file
+from utils import read_yaml_file, download_annotations
 from augmentations import train_augmentation_v3, train_augmentation_v2, train_augmentation_v1
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
-
-
-def extract_zipfile(path_input_zip: str, directory_to_extract_to: str) -> None:
-    def refactor_member_zip_name(member_name: str) -> str:
-        return "_".join(member_name.split('_')[1:]).replace('_annotations', '')
-
-    zip_ref = zipfile.ZipFile(path_input_zip)
-    list_zip_info = zip_ref.infolist()
-
-    for zip_info in list_zip_info:
-        zip_info.filename = refactor_member_zip_name(member_name=zip_info.filename)
-        zip_ref.extract(zip_info, path=directory_to_extract_to)
-
-
-def download_annotations(dataset_version: picsellia.DatasetVersion, annotation_folder_path: str):
-    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "./")
-    extract_zipfile(path_input_zip=zip_file, directory_to_extract_to=annotation_folder_path)
-    shutil.rmtree(os.path.dirname(os.path.dirname(zip_file)))
-    # os.remove(zip_file)
 
 
 def get_alias(dataset_version_name: str) -> str:

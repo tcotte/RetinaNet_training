@@ -1,8 +1,31 @@
+import os
+import shutil
 import typing
+import zipfile
 
+import picsellia
 import torch
 import yaml
+from picsellia.types.enums import AnnotationFileType
 from torchvision.ops import nms
+
+def extract_zipfile(path_input_zip: str, directory_to_extract_to: str) -> None:
+    def refactor_member_zip_name(member_name: str) -> str:
+        return "_".join(member_name.split('_')[1:]).replace('_annotations', '')
+
+    zip_ref = zipfile.ZipFile(path_input_zip)
+    list_zip_info = zip_ref.infolist()
+
+    for zip_info in list_zip_info:
+        zip_info.filename = refactor_member_zip_name(member_name=zip_info.filename)
+        zip_ref.extract(zip_info, path=directory_to_extract_to)
+
+
+def download_annotations(dataset_version: picsellia.DatasetVersion, annotation_folder_path: str):
+    zip_file = dataset_version.export_annotation_file(AnnotationFileType.PASCAL_VOC, "./")
+    extract_zipfile(path_input_zip=zip_file, directory_to_extract_to=annotation_folder_path)
+    shutil.rmtree(os.path.dirname(os.path.dirname(zip_file)))
+
 
 def read_yaml_file(file_path: str) -> typing.Optional[typing.Dict[str, typing.Any]]:
     with open(file_path) as stream:
