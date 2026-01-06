@@ -1,14 +1,11 @@
 import os
-import shutil
-import zipfile
 from typing import List, Dict
 
 import numpy as np
-import picsellia
 import torch
 from matplotlib import pyplot as plt
 from picsellia import Experiment, Client
-from picsellia.types.enums import InferenceType, LogType, AnnotationFileType
+from picsellia.types.enums import InferenceType, LogType
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
@@ -122,13 +119,17 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
             for box, label, score in zip(predictions[idx]['boxes'], predictions[idx]['labels'],
                                          predictions[idx]['scores']):
                 box = box.cpu().numpy()
-                label = int(np.squeeze(label.cpu().numpy()))
                 score = float(np.squeeze(score.cpu().numpy()))
+                try:
+                    label = picsellia_labels[int(np.squeeze(label.cpu().numpy())) - 1]
+                except IndexError:
+                    label = picsellia_labels[int(np.squeeze(label.cpu().numpy()))]
+
                 rectangle = (int(round(box[0] * width_scale)),
                              int(round(box[1] * height_scale)),
                              int(round((box[2] - box[0]) * width_scale)),
                              int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label - 1],
+                             picsellia_labels[label],
                              score)
                 picsellia_rectangles.append(rectangle)
 
@@ -137,6 +138,19 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     # job.wait_for_done()
+
+# def download_dataset_version(root, alias, experiment):
+#     annotations_folder_path = os.path.join(root, alias, 'Annotations')
+#     images_folder_path = os.path.join(root, alias, 'JPEGImages')
+#
+#     os.makedirs(images_folder_path)
+#     os.makedirs(annotations_folder_path)
+#
+#     dataset_version = experiment.get_dataset(alias)
+#     assets = dataset_version.list_assets()
+#     assets.download(images_folder_path, max_workers=8)
+#
+#     download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
 
 
 if __name__ == '__main__':
@@ -152,7 +166,7 @@ if __name__ == '__main__':
 
     # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
 
-    model_weights_path = r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\models\mix_ft.pth'
+    model_weights_path = r''
     test_dataset_path = r'./dataset/val'
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type

@@ -236,7 +236,7 @@ if __name__ == '__main__':
         plt.imshow(img)
 
 
-    image = cv2.imread(r"C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages\2025_02_13-11_05_29.jpg", cv2.IMREAD_COLOR_RGB)
+    image = cv2.imread(r"C:\Users\tristan_cotte\PycharmProjects\datasets\val\JPEGImages\task_asbestos-1-coco--Phenom LabTox31.tiff", cv2.IMREAD_GRAYSCALE)
 
 
 

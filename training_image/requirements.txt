@@ -70,3 +70,4 @@ xmltodict==0.13.0
 zipp==3.21.0
 torch
 torchvision
+torchmetrics
