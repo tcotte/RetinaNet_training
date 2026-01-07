@@ -129,7 +129,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
                              int(round(box[1] * height_scale)),
                              int(round((box[2] - box[0]) * width_scale)),
                              int(round((box[3] - box[1]) * height_scale)),
-                             picsellia_labels[label],
+                             label,
                              score)
                 picsellia_rectangles.append(rectangle)
 
@@ -140,6 +140,8 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
     # job.wait_for_done()
 
 # def download_dataset_version(root, alias, experiment):
+#     from training_image.picsellia_folder.utils import download_annotations
+#
 #     annotations_folder_path = os.path.join(root, alias, 'Annotations')
 #     images_folder_path = os.path.join(root, alias, 'JPEGImages')
 #
