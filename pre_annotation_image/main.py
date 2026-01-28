@@ -43,8 +43,8 @@ if __name__ == "__main__":
         logging.error(f"No job id found: {str(e)}")
         context = {'parameters': {}}
 
-        input_dataset_version_id = ''
-        model_version_id = ''
+        input_dataset_version_id = '019bff21-d68b-78c9-9ad2-edb408b8f13a'
+        model_version_id = '019b9d3e-3108-767c-8d21-b1bd8ff3d05e'
 
     except KeyError as e:
         logging.error(f"No job id found: {str(e)}")
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     """image_size = parameters.get("image_size", 1024)
     model_type = parameters.get("model_type", "onnx")"""
     image_size = int(parameters.get("image_size", 2048))
-    model_type = parameters.get("model_type", "torch")
+    model_type = parameters.get("model_type", "onnx")
     max_detections = int(parameters.get("max_det", 5000))
 
     # if 'single_class' in parameters:

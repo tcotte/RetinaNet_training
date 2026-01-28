@@ -37,13 +37,14 @@ if __name__ == '__main__':
     client = Client(api_token=os.environ['api_token'], organization_id=os.environ['organization_id'])
 
     by_experiment: bool = os.environ.get('experiment_id', None) is not None
+    # by_experiment: bool = False
 
     if by_experiment:
         experiment = client.get_experiment_by_id(id=os.environ['experiment_id'])
 
         model_artifact = experiment.get_artifact('model-latest')
 
-        confidence_threshold = 0.1
+        confidence_threshold = 0.05
         iou_threshold = 0.3
         max_detections = 5000
 
@@ -55,13 +56,12 @@ if __name__ == '__main__':
         model_version_id = context['model_version_processing_job']['input_model_version_id']
         model_version = client.get_model_version_by_id(model_version_id)
 
-        parameters = context["parameters"]
+        parameters = context['model_version_processing_job']["parameters"]
 
-        confidence_threshold = parameters.get("confidence_threshold", 0.3)
+        confidence_threshold = parameters.get("confidence_threshold", 0.2)
         iou_threshold = parameters.get("iou_threshold", 0.3)
         max_detections = parameters.get("max_det", 5000)
 
-        # todo verify
         model_artifact = model_version.get_file('model-latest')
 
         experiment = client.get_experiment_by_id(id=model_version.get_context().experiment_id)
@@ -119,6 +119,8 @@ if __name__ == '__main__':
     # dummy_input = preprocess_image(dummy_input)
     image_size = tuple(dummy_input.shape[2:])
     dummy_input = dummy_input.to(device)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # ONNX export
     torch.onnx.export(

@@ -139,20 +139,20 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     # job.wait_for_done()
 
-# def download_dataset_version(root, alias, experiment):
-#     from training_image.picsellia_folder.utils import download_annotations
-#
-#     annotations_folder_path = os.path.join(root, alias, 'Annotations')
-#     images_folder_path = os.path.join(root, alias, 'JPEGImages')
-#
-#     os.makedirs(images_folder_path)
-#     os.makedirs(annotations_folder_path)
-#
-#     dataset_version = experiment.get_dataset(alias)
-#     assets = dataset_version.list_assets()
-#     assets.download(images_folder_path, max_workers=8)
-#
-#     download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
+def download_dataset_version(root, alias, experiment):
+    from training_image.picsellia_folder.utils import download_annotations
+
+    annotations_folder_path = os.path.join(root, alias, 'Annotations')
+    images_folder_path = os.path.join(root, alias, 'JPEGImages')
+
+    os.makedirs(images_folder_path)
+    os.makedirs(annotations_folder_path)
+
+    dataset_version = experiment.get_dataset(alias)
+    assets = dataset_version.list_assets()
+    assets.download(images_folder_path, max_workers=8)
+
+    download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
 
 
 if __name__ == '__main__':
@@ -166,9 +166,10 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
+    print(os.getcwd())
+    download_dataset_version(root='./dataset', alias='val', experiment=experiment)
 
-    model_weights_path = r''
+    model_weights_path = r'C:\Users\tristan_cotte\Downloads\1025cddc-c14c-46aa-b858-4ef2078c8b0a-latest(1)\content\saved_models\latest.pth'
     test_dataset_path = r'./dataset/val'
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type

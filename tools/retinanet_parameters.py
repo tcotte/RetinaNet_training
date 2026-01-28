@@ -13,6 +13,7 @@ class BackboneType(Enum):
     ResNet = 'ResNet'
     ScaleNet = 'ScaleNet'
     ResNeXt = 'ResNeXt'
+    ConvNeXt = 'ConvNeXt'
 
 
 class FPNExtraBlocks(Enum):

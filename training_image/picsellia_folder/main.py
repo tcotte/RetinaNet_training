@@ -20,10 +20,10 @@ from torch.utils.data import DataLoader
 
 from dataset import PascalVOCDataset, PascalVOCTestDataset
 from evaluator import fill_picsellia_evaluation_tab
-from tools.model_retinanet import collate_fn, build_retinanet_model, build_model
+from tools.model_retinanet import collate_fn, build_retinanet_model, build_model, build_convnext_model
 from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
-from tools.retinanet_parameters import TrainingParameters
+from tools.retinanet_parameters import TrainingParameters, BackboneType
 from trainer import train_model
 from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
 from utils import read_yaml_file, download_annotations
@@ -332,7 +332,30 @@ if __name__ == "__main__":
         training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
         training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
 
+
+
     # Build model
+    if training_parameters.backbone.backbone_type == BackboneType.ConvNeXt:
+        print('convnext')
+        model = build_convnext_model(num_classes=len(class_mapping),
+                            use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
+                            score_threshold=training_parameters.confidence_threshold,
+                            iou_threshold=training_parameters.iou_threshold,
+                            unfrozen_layers=training_parameters.unfreeze,
+                            mean_values=training_parameters.augmentations.normalization.mean,
+                            std_values=training_parameters.augmentations.normalization.std,
+                            anchor_boxes_params=training_parameters.anchor_boxes,
+                            fg_iou_thresh=training_parameters.fg_iou_thresh,
+                            bg_iou_thresh=training_parameters.bg_iou_thresh,
+                            backbone_type=training_parameters.backbone.backbone_type,
+                            backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
+                            add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
+                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
+                            image_size=training_parameters.image_size,
+                            alpha_loss=training_parameters.loss.alpha_loss,
+                            gamma_loss=training_parameters.loss.gamma_loss
+                            )
+
     if training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
         model = build_retinanet_model(num_classes=len(class_mapping),
                                       use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,

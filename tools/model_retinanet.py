@@ -8,9 +8,10 @@ from typing import Union
 import torch
 import torchvision
 from torch import nn, Tensor
+from torchvision.models import convnext_tiny, ConvNeXt_Tiny_Weights
 from torchvision.models.detection import RetinaNet_ResNet50_FPN_V2_Weights
 from torchvision.models.detection.anchor_utils import AnchorGenerator
-from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
+from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor, BackboneWithFPN
 from torchvision.models.detection.retinanet import _default_anchorgen, RetinaNet
 from torchvision.models.detection.retinanet import _sum, RetinaNetHead, RetinaNetClassificationHead
 from torchvision.ops import sigmoid_focal_loss
@@ -136,6 +137,99 @@ def build_model(
     head.regression_head._loss_type = "giou"
 
     model = RetinaNet(backbone=backbone_fpn,
+                      num_classes=num_classes,
+                      anchor_generator=anchor_generator,
+                      head=head,
+                      image_mean=mean_values,
+                      image_std=std_values,
+                      score_thresh=score_threshold,
+                      nms_thresh=iou_threshold,
+                      detections_per_img=max_det,
+                      trainable_backbone_layers=unfrozen_layers,
+                      fg_iou_thresh=fg_iou_thresh,
+                      bg_iou_thresh=bg_iou_thresh,
+                      min_size=min(*image_size),
+                      max_size=max(*image_size)
+                      )
+
+    num_anchors = model.head.classification_head.num_anchors
+    model.head.classification_head = CustomedLossClassificationHead(
+        in_channels=256,
+        num_anchors=num_anchors,
+        num_classes=num_classes,
+        norm_layer=partial(torch.nn.GroupNorm, 32),
+        alpha_loss=alpha_loss,
+        gamma_loss=gamma_loss
+    )
+
+    if trained_weights is not None:
+        model.load_state_dict(torch.load(trained_weights, weights_only=True))
+
+    return model
+
+
+def build_convnext_model(
+        score_threshold: float,
+        use_imageNet_pretrained_weights: bool,
+        iou_threshold: float,
+        image_size: Tuple[int, int],
+        max_det: int = 300,
+        num_classes: int = 91,
+        mean_values: Union[Tuple[float, float, float], None] = None,
+        std_values: Union[Tuple[float, float, float], None] = None,
+        unfrozen_layers: int = 3,
+        trained_weights: Union[str, None] = None,
+        anchor_boxes_params: Union[dict, None] = None,
+        fg_iou_thresh: float = 0.5,
+        bg_iou_thresh: float = 0.4,
+        backbone_type: BackboneType = BackboneType.ResNet,
+        backbone_layers_nb: int = 50,
+        add_P2_to_FPN: bool = False,
+        extra_blocks_FPN: Optional[FPNExtraBlocks] = FPNExtraBlocks.LastLevelMaxPool,
+        alpha_loss: float = 0.25,
+        gamma_loss: float = 2.0
+) -> RetinaNet:
+    if not use_imageNet_pretrained_weights:
+        weights = None
+    else:
+        weights = ConvNeXt_Tiny_Weights.DEFAULT
+    convnext = convnext_tiny(weights=weights)
+
+    # Freeze stages 0–2
+    for name, param in convnext.named_parameters():
+        if any([name.startswith(f"features.{i}") for i in [0, 1, 2]]):
+            param.requires_grad = False
+
+    # connected layers ot the backbone
+    return_layers = {
+        "1": "c2",
+        "3": "c3",
+        "5": "c4",
+        "7": "c5",
+    }
+
+    backbone = BackboneWithFPN(
+        convnext.features,
+        return_layers=return_layers,
+        in_channels_list=[96, 192, 384, 768],
+        out_channels=256,
+    )
+
+    if anchor_boxes_params is not None:
+        anchor_generator = AnchorGenerator(**{k: v for k, v in anchor_boxes_params.dict().items() if k != 'auto_size'})
+
+    else:
+        anchor_generator = _default_anchorgen()
+
+    head = RetinaNetHead(
+        backbone.out_channels,
+        anchor_generator.num_anchors_per_location()[0],
+        num_classes,
+        norm_layer=partial(nn.GroupNorm, 32),
+    )
+    head.regression_head._loss_type = "giou"
+
+    model = RetinaNet(backbone=backbone,
                       num_classes=num_classes,
                       anchor_generator=anchor_generator,
                       head=head,

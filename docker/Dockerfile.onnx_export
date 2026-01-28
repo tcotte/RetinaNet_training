@@ -1,19 +1,22 @@
 FROM picsellia/cpu:python3.9
 
-RUN pip3 install picsellia
-RUN pip3 install torch torchvision
-RUN pip3 install albumentations
-RUN pip3 install pycocotools
-RUN pip3 install onnx==1.18.0
-RUN pip3 install onnxruntime-gpu==1.19.2
-RUN pip3 install imutils
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-warn-script-location picsellia \
+    torch \
+    torchvision \
+    albumentations \
+    pycocotools \
+    onnx==1.18.0 \
+    onnxruntime-gpu==1.19.2 \
+    imutils
 
 
-COPY training_image /src/training_image
 COPY exports/src /src/
+COPY tools /src/tools
 
 RUN chown -R 42420:42420 /src
 RUN mkdir -p ./models && chmod 777 ./models
+RUN mkdir -p ./tmp && chmod 777 ./tmp
 # RUN mkdir -p ./dataset && chmod 777 ./dataset
 RUN chmod 777 ./
 
