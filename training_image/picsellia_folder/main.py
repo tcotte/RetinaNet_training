@@ -356,7 +356,7 @@ if __name__ == "__main__":
                             gamma_loss=training_parameters.loss.gamma_loss
                             )
 
-    if training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
+    elif training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
         model = build_retinanet_model(num_classes=len(class_mapping),
                                       use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
                                       score_threshold=training_parameters.confidence_threshold,

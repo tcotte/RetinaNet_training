@@ -44,11 +44,11 @@ def create_retinanet_model_version(model: picsellia.Model, nb_layers: int, base_
 
 if __name__ == '__main__':
 
-    client = Client(api_token=os.environ['api_token'], organization_id=os.environ['organization_id'])
+    client = Client(api_token=os.environ['picsellia_api_token'], organization_name='SGS_France')
     model = client.get_model(name='RetinaNet')
 
     base_parameters = {
-        "batch_size": 32,
+        "batch_size": 8,
         "learning_rate": 1e-4,
         "lr_scheduler_gamma": 0.9,
         "epoch": 300,
@@ -115,3 +115,33 @@ if __name__ == '__main__':
             model_version.store(name='config', path=temp_config_filepath)
             model_version.store(name='aug_hyp', path=r'config_files/aug_hyp.yaml')
             os.remove(temp_config_filepath)
+
+    # convNext backbone
+    nb_layers = 0
+    temp_config_filepath = r'config_files/config_temp.yaml'
+    config_dict = read_yaml_file(file_path=r'config_files/config.yaml')
+    # set_nested_value(config_dict, ['backbone', 'backbone_layers_nb'], nb_layers)
+    set_nested_value(config_dict, ['backbone', 'backbone_type'], 'ConvNeXt')
+    write_yaml_file(data=config_dict, file_path=temp_config_filepath)
+
+    # base_parameters['nb_layers'] = nb_layers
+    try:
+        model_version = create_retinanet_model_version(model=model,
+                                                       nb_layers=nb_layers,
+                                                       base_parameters=base_parameters,
+                                                       name='RetinaNet_ConvNeXt')
+
+    # if model version already exists: delete it and recreate it
+    except ResourceConflictError:
+        model_version = model.get_version(version='RetinaNet_ConvNeXt')
+        model_version.delete()
+
+        model_version = create_retinanet_model_version(model=model,
+                                                       nb_layers=nb_layers,
+                                                       base_parameters=base_parameters,
+                                                       name='RetinaNet_ConvNeXt')
+
+    finally:
+        model_version.store(name='config', path=temp_config_filepath)
+        model_version.store(name='aug_hyp', path=r'config_files/aug_hyp.yaml')
+        os.remove(temp_config_filepath)
