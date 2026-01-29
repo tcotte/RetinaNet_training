@@ -333,7 +333,6 @@ if __name__ == "__main__":
         training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
 
 
-
     # Build model
     if training_parameters.backbone.backbone_type == BackboneType.ConvNeXt:
         print('convnext')

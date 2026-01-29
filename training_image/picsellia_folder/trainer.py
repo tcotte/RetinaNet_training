@@ -60,6 +60,10 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
         callback.on_train_end(best_validation_map=best_map, path_saved_models=path_saved_models,
                               path_precision_recall_plot=precision_recall_curve_plot_path)
 
+    def reg_nan_hook(module, inp, out):
+        if torch.isnan(out).any() or torch.isinf(out).any():
+            print("🔥 NaN/Inf in regression head output")
+
     early_stopper = EarlyStopper(patience=patience)
     visualisation_val_loss = True
     best_map = 0.0
@@ -85,6 +89,30 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
 
                 images = list(image.type(torch.FloatTensor).to(device) for image in images)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+                # todo remove this debug function
+                # bboxes verification
+                for t in targets:
+                    boxes = t["boxes"]
+
+                    assert torch.isfinite(boxes).all(), "NaN/Inf in GT boxes"
+                    assert (boxes[:, 2] > boxes[:, 0]).all(), "Invalid box width"
+                    assert (boxes[:, 3] > boxes[:, 1]).all(), "Invalid box height"
+
+                # anchors verification
+                features = model.backbone(torch.tensor(images))
+                anchors = model.anchor_generator(images, features)
+                for lvl, a in enumerate(anchors):
+                    print(
+                        f"lvl {lvl}:",
+                        torch.isfinite(a).all().item(),
+                        (a[:, 2] > a[:, 0]).all().item(),
+                        (a[:, 3] > a[:, 1]).all().item(),
+                    )
+
+
+
+                model.head.regression_head.register_forward_hook(reg_nan_hook)
 
                 '''
                 Losses: 
