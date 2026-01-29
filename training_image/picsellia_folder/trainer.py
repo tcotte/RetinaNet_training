@@ -93,6 +93,7 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                 '''
                 if not mixed_precision:
                     loss_dict = model(images, targets)
+
                     loss_dict = apply_loss_weights(loss_dict=loss_dict, loss_coefficients=loss_coefficients)
 
                     total_loss = sum(loss for loss in loss_dict.values())

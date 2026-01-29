@@ -227,7 +227,7 @@ def build_convnext_model(
         num_classes,
         norm_layer=partial(nn.GroupNorm, 32),
     )
-    head.regression_head._loss_type = "giou"
+    head.regression_head._loss_type = "smooth_l1"
 
     model = RetinaNet(backbone=backbone,
                       num_classes=num_classes,
