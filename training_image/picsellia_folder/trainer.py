@@ -100,7 +100,7 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     assert (boxes[:, 3] > boxes[:, 1]).all(), "Invalid box height"
 
                 # anchors verification
-                features = model.backbone(torch.tensor(images))
+                features = model.backbone(images)
                 anchors = model.anchor_generator(images, features)
                 for lvl, a in enumerate(anchors):
                     print(
