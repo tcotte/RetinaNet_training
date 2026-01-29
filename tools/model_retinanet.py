@@ -193,7 +193,12 @@ def build_convnext_model(
         weights = None
     else:
         weights = ConvNeXt_Tiny_Weights.DEFAULT
-    convnext = convnext_tiny(weights=weights)
+    convnext = convnext_tiny(weights=weights,
+                             min_size=min(*image_size),
+                             max_size=max(*image_size),
+                             image_mean=mean_values,
+                             image_std=std_values,
+                             )
 
     # Freeze stages 0–2
     for name, param in convnext.named_parameters():

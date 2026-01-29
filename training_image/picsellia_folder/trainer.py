@@ -100,21 +100,21 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
                     assert (boxes[:, 3] > boxes[:, 1]).all(), "Invalid box height"
 
                 # anchors verification
-                model.eval()
-                features = model.backbone(images)
-                anchors = model.anchor_generator(images, features)
-                for lvl, a in enumerate(anchors):
-                    print(
-                        f"lvl {lvl}:",
-                        torch.isfinite(a).all().item(),
-                        (a[:, 2] > a[:, 0]).all().item(),
-                        (a[:, 3] > a[:, 1]).all().item(),
-                    )
-
-
-
-                model.head.regression_head.register_forward_hook(reg_nan_hook)
-                model.train()
+                # model.eval()
+                # features = model.backbone(torch.tensor([i.cpu().numpy() for i in images]).to('cuda'))
+                # anchors = model.anchor_generator(images, features)
+                # for lvl, a in enumerate(anchors):
+                #     print(
+                #         f"lvl {lvl}:",
+                #         torch.isfinite(a).all().item(),
+                #         (a[:, 2] > a[:, 0]).all().item(),
+                #         (a[:, 3] > a[:, 1]).all().item(),
+                #     )
+                #
+                #
+                #
+                # model.head.regression_head.register_forward_hook(reg_nan_hook)
+                # model.train()
 
                 '''
                 Losses: 
