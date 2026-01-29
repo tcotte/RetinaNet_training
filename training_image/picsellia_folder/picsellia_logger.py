@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Union, Dict
 
+import picsellia.exceptions
 from dotenv import load_dotenv
 from picsellia import Client, Experiment
 from picsellia.types.enums import LogType, ExperimentStatus
@@ -89,13 +90,24 @@ class PicselliaLogger:
             validation_losses = {}
 
         for key, value in validation_losses.items():
-            self._experiment.log(name=f'Validation loss {key}', type=LogType.LINE, data=value)
+            try:
+                self._experiment.log(name=f'Validation loss {key}', type=LogType.LINE, data=value)
+
+            except picsellia.exceptions.BadRequestError:
+                self._experiment.log(name=f'Validation loss {key}', type=LogType.LINE, data=0)
+
 
         for key, value in training_losses.items():
-            self._experiment.log(name=f'Training loss {key}', type=LogType.LINE, data=value)
+            try:
+                self._experiment.log(name=f'Training loss {key}', type=LogType.LINE, data=value)
+            except picsellia.exceptions.BadRequestError as e:
+                self._experiment.log(name=f'Training loss {key}', type=LogType.LINE, data=0)
 
         for key, value in accuracies.items():
-            self._experiment.log(name=f'Validation {key}', type=LogType.LINE, data=value)
+            try:
+                self._experiment.log(name=f'Validation {key}', type=LogType.LINE, data=value)
+            except picsellia.exceptions.BadRequestError as e:
+                self._experiment.log(name=f'Validation {key}', type=LogType.LINE, data=0)
 
         if display_gpu_occupancy:
             self._experiment.log(name='GPU occupancy (%)', type=LogType.LINE, data=get_GPU_occupancy())
