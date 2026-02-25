@@ -1,10 +1,11 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from picsellia import Experiment, Client
+from picsellia.sdk.evaluation import Evaluation, MultiEvaluation
 from picsellia.types.enums import InferenceType, LogType
 from torchmetrics.detection import MeanAveragePrecision
 from torchvision.models.detection import RetinaNet
@@ -13,6 +14,79 @@ from torchvision.models.detection.anchor_utils import AnchorGenerator
 from dataset import PascalVOCDataset
 from tools.model_retinanet import build_retinanet_model, collate_fn
 from tools.retinanet_parameters import TrainingParameters
+
+from podm.metrics import get_pascal_voc_metrics, BoundingBox
+import pandas as pd
+
+
+def compute_evaluation_metrics(experiment: Experiment) -> None:
+    """
+    Create dataframes (for every class) with evaluations metrics depending on the confidence. This dataframe will be
+    transferred into the Picsell.ia experiment as table.
+    :param experiment: related experiment
+    """
+    def get_bboxes_from_evaluations(evaluations: Union[List[Evaluation], MultiEvaluation]) -> (
+    BoundingBox, BoundingBox):
+        bbox_pred = []
+        bbox_gt = []
+        for i, eval in enumerate(evaluations):
+            synchronized_eval = eval.sync()
+
+            asset_id = synchronized_eval["asset_id"]
+
+            dataset_version_id = synchronized_eval["asset"]["dataset_version_id"]
+
+            rectangles_gt = \
+                client.get_dataset_version_by_id(dataset_version_id).find_asset(id=asset_id).list_annotations()[
+                    0].list_rectangles()
+
+            predictions = synchronized_eval["rectangles"]
+
+            bbox_gt.extend([BoundingBox.of_bbox(xtl=int(rectangle.x - rectangle.w / 2),
+                                                ytl=int(rectangle.y - rectangle.h / 2),
+                                                xbr=int(rectangle.x + rectangle.w / 2),
+                                                ybr=int(rectangle.y + rectangle.h / 2),
+                                                category=rectangle.label.name,
+                                                image=i) for rectangle in rectangles_gt])
+
+            bbox_pred.extend([BoundingBox.of_bbox(xtl=int(rectangle['x'] - rectangle['w'] / 2),
+                                                  ytl=int(rectangle['y'] - rectangle['h'] / 2),
+                                                  xbr=int(rectangle['x'] + rectangle['w'] / 2),
+                                                  ybr=int(rectangle['y'] + rectangle['h'] / 2),
+                                                  category=rectangle['label']['name'],
+                                                  image=i,
+                                                  score=rectangle['score']) for rectangle in predictions])
+
+        return bbox_gt, bbox_pred
+
+    bbox_gt, bbox_pred = get_bboxes_from_evaluations(evaluations=experiment.list_evaluations())
+
+    gt_cls = np.unique([bbox.category for bbox in bbox_gt]).tolist()
+
+    for key in list(gt_cls):
+        df = pd.DataFrame()
+
+        for conf in np.around(np.arange(start=0.05, stop=1.000001, step=0.05), 2).tolist():
+            filtered_bbox_pred = [bbox for bbox in bbox_pred if bbox.score >= conf]
+
+            metrics = get_pascal_voc_metrics(bbox_gt, filtered_bbox_pred, iou_threshold=0.5)
+
+            precision = metrics[key].tp / (metrics[key].tp + metrics[key].fp)
+            fn = metrics[key].num_groundtruth - metrics[key].tp
+            recall = metrics[key].tp / (metrics[key].tp + fn)
+
+            f1 = 2 * precision * recall / (precision + recall)
+
+            df_temp = pd.DataFrame({'precision': [round(precision, 3)],
+                                    'recall': [round(recall, 3)],
+                                    'f1': [round(f1, 3)]})
+            df = pd.concat([df, df_temp], ignore_index=True)
+
+        data = {'data': df.to_numpy().tolist(),
+                'rows': [f'conf_{i}' for i in np.around(np.arange(start=0.05, stop=1.000001, step=0.05), 2).tolist()],
+                'columns': df.columns.tolist()}
+
+        experiment.log(name=f"metrics/{key}", data=data, type=LogType.TABLE)
 
 
 def plot_precision_recall_curve(validation_metrics: Dict, recall_thresholds: List[float]) -> plt.plot:
@@ -137,22 +211,22 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
     log_final_metrics(results=metric.compute())
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
-    # job.wait_for_done()
+    job.wait_for_done(blocking_time_increment=120)
 
-def download_dataset_version(root, alias, experiment):
-    from training_image.picsellia_folder.utils import download_annotations
-
-    annotations_folder_path = os.path.join(root, alias, 'Annotations')
-    images_folder_path = os.path.join(root, alias, 'JPEGImages')
-
-    os.makedirs(images_folder_path)
-    os.makedirs(annotations_folder_path)
-
-    dataset_version = experiment.get_dataset(alias)
-    assets = dataset_version.list_assets()
-    assets.download(images_folder_path, max_workers=8)
-
-    download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
+# def download_dataset_version(root, alias, experiment):
+#     from training_image.picsellia_folder.utils import download_annotations
+#
+#     annotations_folder_path = os.path.join(root, alias, 'Annotations')
+#     images_folder_path = os.path.join(root, alias, 'JPEGImages')
+#
+#     os.makedirs(images_folder_path)
+#     os.makedirs(annotations_folder_path)
+#
+#     dataset_version = experiment.get_dataset(alias)
+#     assets = dataset_version.list_assets()
+#     assets.download(images_folder_path, max_workers=8)
+#
+#     download_annotations(dataset_version=dataset_version, annotation_folder_path=annotations_folder_path)
 
 
 if __name__ == '__main__':
@@ -209,7 +283,7 @@ if __name__ == '__main__':
     valid_transform = A.Compose([
         A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
         ToTensorV2()
-        ], bbox_params = A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
     # test_dataset = PascalVOCTestDataset(
     #     image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
@@ -217,7 +291,7 @@ if __name__ == '__main__':
     # )
 
     test_dataset = PascalVOCDataset(
-        data_folder= test_dataset_path,
+        data_folder=test_dataset_path,
         split='test',
         single_cls=True,
         transform=valid_transform)

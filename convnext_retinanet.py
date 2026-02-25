@@ -47,18 +47,17 @@ backbone = BackboneWithFPN(
 )
 print(backbone.out_channels)
 
-anchor_generator = AnchorGenerator(
-        sizes=((8, 16, 32),) * 5,
-        aspect_ratios=((0.5, 1.0, 2.0),) * 5,
-    )
+# anchor_generator = AnchorGenerator(
+#         sizes=((8, 16, 32),) * 5,
+#         aspect_ratios=((0.5, 1.0, 2.0),) * 5,
+#     )
 
 # backbone = ConvNeXtBackbone()
 num_classes = 2
 
 model = RetinaNet(
     backbone=backbone,
-    num_classes=num_classes,
-    anchor_generator=anchor_generator
+    num_classes=num_classes
 )
 
 
@@ -68,6 +67,8 @@ if __name__ == "__main__":
     model.cuda()
 
     model.eval()
+
+
 
     x = torch.randn(1, 3, 1024, 1024, dtype=torch.float32)
     x = x.to('cuda')

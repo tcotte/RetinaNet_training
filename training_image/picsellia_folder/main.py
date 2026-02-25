@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from dataset import PascalVOCDataset, PascalVOCTestDataset
-from evaluator import fill_picsellia_evaluation_tab
+from evaluator import fill_picsellia_evaluation_tab, compute_evaluation_metrics
 from tools.model_retinanet import collate_fn, build_retinanet_model, build_model, build_convnext_model
 from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
@@ -470,3 +470,4 @@ if __name__ == "__main__":
                                   experiment=experiment,
                                   dataset_version_name=test_dataset_split,
                                   device=device)
+    compute_evaluation_metrics(experiment=experiment)

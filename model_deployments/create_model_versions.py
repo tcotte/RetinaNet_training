@@ -122,6 +122,8 @@ if __name__ == '__main__':
     config_dict = read_yaml_file(file_path=r'config_files/config.yaml')
     # set_nested_value(config_dict, ['backbone', 'backbone_layers_nb'], nb_layers)
     set_nested_value(config_dict, ['backbone', 'backbone_type'], 'ConvNeXt')
+    set_nested_value(config_dict, ['anchor_boxes', 'auto_size'], 'False')
+    set_nested_value(config_dict, ['anchor_boxes', 'sizes'], '((32, 40, 50), (64, 80, 101), (128, 161, 203), (256, 322, 406), (512, 645, 812))')
     write_yaml_file(data=config_dict, file_path=temp_config_filepath)
 
     # base_parameters['nb_layers'] = nb_layers

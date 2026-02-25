@@ -10,6 +10,7 @@ RUN  rm /usr/lib/python3.12/EXTERNALLY-MANAGED
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install -r requirements.txt --trusted-host developer.download.nvidia.com
+RUN pip3 install object-detection-metrics
 
 
 RUN #pip3 install -r requirements.txt --trusted-host developer.download.nvidia.com
