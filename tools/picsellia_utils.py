@@ -5,8 +5,9 @@ import time
 import zipfile
 from fnmatch import fnmatch
 from itertools import compress
-from typing import Union
+from typing import Union, Optional
 
+import picsellia
 from picsellia import Artifact, ModelFile
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
@@ -68,3 +69,13 @@ def download_model_version(model_artifact: Union[Artifact, ModelFile], model_tar
     print(destination_pth_file)
 
     return destination_pth_file
+
+def get_model_version_labelmap(experiment) -> Optional[dict]:
+    for labelmap_definition in ['LabelMap', 'labelmap', 'labelMap', 'Labelmap']:
+        try:
+            return experiment.get_log(labelmap_definition).data
+        except picsellia.exceptions.ResourceNotFoundError:
+            logging.info(f'{labelmap_definition} not found.')
+
+    logging.error('Labelmap not found')
+    return None

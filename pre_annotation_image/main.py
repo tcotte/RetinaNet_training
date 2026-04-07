@@ -17,7 +17,6 @@ def str2bool(str_value: str) -> bool:
 
 
 if __name__ == "__main__":
-    use_picsellia_processing: bool = False
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -36,8 +35,8 @@ if __name__ == "__main__":
         context = job.sync()["dataset_version_processing_job"]
 
         input_dataset_version_id = context["input_dataset_version_id"]
-        output_dataset_version = context["output_dataset_version_id"]
-        model_version_id = context["model_version_id"]
+        output_dataset_version = context["inputs"]["output_dataset_version_id"]
+        model_version_id = context["inputs"]["model_version_id"]
 
     except picsellia.exceptions.ResourceNotFoundError as e:
         logging.error(f"No job id found: {str(e)}")
@@ -57,21 +56,14 @@ if __name__ == "__main__":
     parameters = context["parameters"]
 
     confidence_threshold = float(parameters.get("confidence_threshold", 0.3))
-    """image_size = parameters.get("image_size", 1024)
-    model_type = parameters.get("model_type", "onnx")"""
     image_size = int(parameters.get("image_size", 2048))
     model_type = parameters.get("model_type", "onnx")
     max_detections = int(parameters.get("max_det", 5000))
 
-    # if 'single_class' in parameters:
-    #     if isinstance(parameters['single_class'], str):
-    #         single_class = strtobool(val=parameters['single_class'])
-    #     else:
-    #         single_class = parameters['single_class']
-
     logging.info(f"Used parameters:")
     for k, v in parameters.items():
         logging.info(f"{k}: {v}")
+    logging.info("---")
 
     pre_annotator = PreAnnotator(client=client,
                                  dataset_version_id=input_dataset_version_id,

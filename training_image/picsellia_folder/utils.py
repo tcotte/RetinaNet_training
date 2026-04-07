@@ -6,8 +6,15 @@ import zipfile
 import picsellia
 import torch
 import yaml
+from picsellia import ModelVersion, Experiment
 from picsellia.types.enums import AnnotationFileType
+from torch import nn
 from torchvision.ops import nms
+
+from tools.model_retinanet import build_retinanet_model, build_model
+from tools.picsellia_utils import get_model_version_labelmap
+from tools.retinanet_parameters import AnchorBoxesParameters, BackboneType, FPNExtraBlocks
+
 
 def extract_zipfile(path_input_zip: str, directory_to_extract_to: str) -> None:
     def refactor_member_zip_name(member_name: str) -> str:
@@ -226,3 +233,72 @@ def get_GPU_occupancy(gpu_id: int = 0) -> float:
 
     else:
         return 0.0
+
+
+def load_trained_model(experiment: Experiment, unfrozen_layers: int, iou_threshold: float,
+                       confidence_threshold: float, model_weights_path: str) -> nn.Module:
+    inference_size = (experiment.get_log('All parameters').data['image_size'],
+                  experiment.get_log('All parameters').data['image_size'])
+
+    if (len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1 or
+            len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 3):
+        anchor_boxes = AnchorBoxesParameters(
+            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']),
+            aspect_ratios=tuple(
+                [tuple(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) for i in
+                 range(5)]))
+    elif len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 5:
+        anchor_boxes = AnchorBoxesParameters(
+            sizes=tuple(experiment.get_log('All parameters').data['anchor_boxes_sizes']),
+            aspect_ratios=tuple(
+                experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']))
+
+    if experiment.get_log('All parameters').data['version'] == 2:
+        model = build_retinanet_model(num_classes=len(get_model_version_labelmap(experiment)),
+                                 use_COCO_pretrained_weights=False,
+                                 trained_weights=model_weights_path,
+                                 score_threshold=confidence_threshold,
+                                 image_size=inference_size,
+                                 iou_threshold=iou_threshold,
+                                 unfrozen_layers=unfrozen_layers,
+                                 mean_values=experiment.get_log('All parameters').data[
+                                     'augmentations_normalization_mean'],
+                                 std_values=experiment.get_log('All parameters').data[
+                                     'augmentations_normalization_std'],
+                                 anchor_boxes_params=anchor_boxes,
+                                 fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
+                                 bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh'])
+
+    else:
+        model = build_model(num_classes=len(get_model_version_labelmap(experiment)),
+                                 backbone_type=BackboneType[
+                                     experiment.get_log('All parameters').data['backbone_backbone_type']],
+                                 add_P2_to_FPN=not experiment.get_log('All parameters').data[
+                                     'backbone_add_P2_to_FPN'],
+                                 extra_blocks_FPN=FPNExtraBlocks[
+                                     experiment.get_log('All parameters').data['backbone_extra_blocks_FPN']],
+                                 backbone_layers_nb=experiment.get_log('All parameters').data[
+                                     'backbone_backbone_layers_nb'],
+                                 use_imageNet_pretrained_weights=False,
+                                 trained_weights=model_weights_path,
+                                 score_threshold=confidence_threshold,
+                                 image_size=inference_size,
+                                 iou_threshold=iou_threshold,
+                                 unfrozen_layers=unfrozen_layers,
+                                 mean_values=experiment.get_log('All parameters').data[
+                                     'augmentations_normalization_mean'],
+                                 std_values=experiment.get_log('All parameters').data[
+                                     'augmentations_normalization_std'],
+                                 anchor_boxes_params=anchor_boxes,
+                                 fg_iou_thresh=experiment.get_log('All parameters').data['fg_iou_thresh'],
+                                 bg_iou_thresh=experiment.get_log('All parameters').data['bg_iou_thresh'])
+    return model
+
+def is_finetune(model_version: ModelVersion) -> (bool, typing.Optional[Experiment]):
+    try:
+        context = model_version.get_context()
+        return True, context.get_experiment()
+
+    except picsellia.exceptions.ResourceNotFoundError as e:
+        print('Model was not already fine tuned.')
+        return False, None

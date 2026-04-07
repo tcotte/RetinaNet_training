@@ -19,13 +19,13 @@ from podm.metrics import get_pascal_voc_metrics, BoundingBox
 import pandas as pd
 
 
-def compute_evaluation_metrics(experiment: Experiment) -> None:
+def compute_evaluation_metrics(experiment: Experiment, client: Client) -> None:
     """
     Create dataframes (for every class) with evaluations metrics depending on the confidence. This dataframe will be
     transferred into the Picsell.ia experiment as table.
     :param experiment: related experiment
     """
-    def get_bboxes_from_evaluations(evaluations: Union[List[Evaluation], MultiEvaluation]) -> (
+    def get_bboxes_from_evaluations(evaluations: Union[List[Evaluation], MultiEvaluation], client: Client) -> (
     BoundingBox, BoundingBox):
         bbox_pred = []
         bbox_gt = []
@@ -59,7 +59,7 @@ def compute_evaluation_metrics(experiment: Experiment) -> None:
 
         return bbox_gt, bbox_pred
 
-    bbox_gt, bbox_pred = get_bboxes_from_evaluations(evaluations=experiment.list_evaluations())
+    bbox_gt, bbox_pred = get_bboxes_from_evaluations(evaluations=experiment.list_evaluations(), client=client)
 
     gt_cls = np.unique([bbox.category for bbox in bbox_gt]).tolist()
 
@@ -211,7 +211,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
     log_final_metrics(results=metric.compute())
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
-    job.wait_for_done(blocking_time_increment=120)
+    job.wait_for_done(blocking_time_increment=120.0)
 
 # def download_dataset_version(root, alias, experiment):
 #     from training_image.picsellia_folder.utils import download_annotations
@@ -240,69 +240,71 @@ if __name__ == '__main__':
     # Get device
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    print(os.getcwd())
-    download_dataset_version(root='./dataset', alias='val', experiment=experiment)
+    compute_evaluation_metrics(experiment=experiment, client = client)
 
-    model_weights_path = r'C:\Users\tristan_cotte\Downloads\1025cddc-c14c-46aa-b858-4ef2078c8b0a-latest(1)\content\saved_models\latest.pth'
-    test_dataset_path = r'./dataset/val'
-    training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
-    training_parameters.device = device.type
-    if device.type == 'cuda':
-        training_parameters.device_name = torch.cuda.get_device_name()
-
-    # inferences
-    model = build_retinanet_model(num_classes=2,
-                                  use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
-                                  trained_weights=model_weights_path,
-                                  score_threshold=0.25,
-                                  # score_threshold=training_parameters.confidence_threshold,
-                                  iou_threshold=0.1,
-                                  unfrozen_layers=training_parameters.unfreeze,
-                                  mean_values=experiment.get_log('All parameters').data[
-                                      'augmentations_normalization_mean'],
-                                  std_values=experiment.get_log('All parameters').data[
-                                      'augmentations_normalization_std'],
-                                  anchor_boxes_params=training_parameters.anchor_boxes,
-                                  fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                  bg_iou_thresh=training_parameters.bg_iou_thresh,
-                                  image_size=(2048, 2048)
-                                  )
-    model.anchor_generator = AnchorGenerator(
-        sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
-        aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
-
-    model.load_state_dict(torch.load(model_weights_path))
-    model.to(device)
-    model.eval()
-
-    # dataset
-    # image_size = experiment.get_log('All parameters').data['image_size']
-    image_size = (2048, 2048)
-    random_crop = False
-
-    valid_transform = A.Compose([
-        A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
-
-    # test_dataset = PascalVOCTestDataset(
-    #     image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
-    #     transform=valid_transform
+    # print(os.getcwd())
+    # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
+    #
+    # model_weights_path = r'C:\Users\tristan_cotte\Downloads\1025cddc-c14c-46aa-b858-4ef2078c8b0a-latest(1)\content\saved_models\latest.pth'
+    # test_dataset_path = r'./dataset/val'
+    # training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
+    # training_parameters.device = device.type
+    # if device.type == 'cuda':
+    #     training_parameters.device_name = torch.cuda.get_device_name()
+    #
+    # # inferences
+    # model = build_retinanet_model(num_classes=2,
+    #                               use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
+    #                               trained_weights=model_weights_path,
+    #                               score_threshold=0.25,
+    #                               # score_threshold=training_parameters.confidence_threshold,
+    #                               iou_threshold=0.1,
+    #                               unfrozen_layers=training_parameters.unfreeze,
+    #                               mean_values=experiment.get_log('All parameters').data[
+    #                                   'augmentations_normalization_mean'],
+    #                               std_values=experiment.get_log('All parameters').data[
+    #                                   'augmentations_normalization_std'],
+    #                               anchor_boxes_params=training_parameters.anchor_boxes,
+    #                               fg_iou_thresh=training_parameters.fg_iou_thresh,
+    #                               bg_iou_thresh=training_parameters.bg_iou_thresh,
+    #                               image_size=(2048, 2048)
+    #                               )
+    # model.anchor_generator = AnchorGenerator(
+    #     sizes=experiment.get_log('All parameters').data['anchor_boxes_sizes'],
+    #     aspect_ratios=experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios'])
+    #
+    # model.load_state_dict(torch.load(model_weights_path))
+    # model.to(device)
+    # model.eval()
+    #
+    # # dataset
+    # # image_size = experiment.get_log('All parameters').data['image_size']
+    # image_size = (2048, 2048)
+    # random_crop = False
+    #
+    # valid_transform = A.Compose([
+    #     A.RandomCrop(*image_size) if random_crop else A.Resize(*image_size),
+    #     ToTensorV2()
+    # ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
+    #
+    # # test_dataset = PascalVOCTestDataset(
+    # #     image_folder=r'C:\Users\tristan_cotte\PycharmProjects\RetinaNet_training\inferences\dataset\test\JPEGImages',
+    # #     transform=valid_transform
+    # # )
+    #
+    # test_dataset = PascalVOCDataset(
+    #     data_folder=test_dataset_path,
+    #     split='test',
+    #     single_cls=True,
+    #     transform=valid_transform)
+    #
+    # val_data_loader = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     num_workers=8,
+    #     batch_size=4,
+    #     shuffle=False,
+    #     collate_fn=collate_fn
     # )
-
-    test_dataset = PascalVOCDataset(
-        data_folder=test_dataset_path,
-        split='test',
-        single_cls=True,
-        transform=valid_transform)
-
-    val_data_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        num_workers=8,
-        batch_size=4,
-        shuffle=False,
-        collate_fn=collate_fn
-    )
-
-    fill_picsellia_evaluation_tab(model=model, data_loader=val_data_loader, experiment=experiment,
-                                  dataset_version_name='val', device=device)
+    #
+    # fill_picsellia_evaluation_tab(model=model, data_loader=val_data_loader, experiment=experiment,
+    #                               dataset_version_name='val', device=device)

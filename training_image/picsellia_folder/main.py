@@ -1,8 +1,6 @@
 import logging
 import os
-import shutil
 import typing
-import zipfile
 from collections import defaultdict
 from collections.abc import MutableMapping
 from typing import Union
@@ -13,21 +11,21 @@ import torch
 import yaml
 from albumentations.pytorch import ToTensorV2
 from picsellia import Client, ModelVersion, DatasetVersion, Experiment
-from picsellia.types.enums import AnnotationFileType
-from pytorch_warmup import ExponentialWarmup, LinearWarmup
+from pytorch_warmup import LinearWarmup
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from dataset import PascalVOCDataset, PascalVOCTestDataset
+from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
+from dataset import PascalVOCDataset
 from evaluator import fill_picsellia_evaluation_tab, compute_evaluation_metrics
-from tools.model_retinanet import collate_fn, build_retinanet_model, build_model, build_convnext_model
 from normalize_parameters import compute_auto_normalization_parameters
 from picsellia_logger import PicselliaLogger
+from tools.model_retinanet import collate_fn, build_retinanet_model, build_model, build_convnext_model
+from tools.picsellia_utils import download_model_version
 from tools.retinanet_parameters import TrainingParameters, BackboneType
 from trainer import train_model
-from anchor_optimization.optimize_anchors_torch import compute_optimized_anchors
-from utils import read_yaml_file, download_annotations
-from augmentations import train_augmentation_v3, train_augmentation_v2, train_augmentation_v1
+from utils import read_yaml_file, download_annotations, is_finetune, load_trained_model
+from augmentations import *
 
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
@@ -98,7 +96,7 @@ def download_experiment_file(base_model: ModelVersion, experiment_file: str):
     comport_file: bool = any([i.name == experiment_file for i in base_model.list_files()])
     if comport_file:
         base_model_weights = base_model.get_file(experiment_file)
-        base_model_weights.download()
+        base_model_weights.download(target_path="./")
 
 
 def get_advanced_config(base_model: ModelVersion) -> Union[None, dict]:
@@ -117,6 +115,9 @@ def create_dataloaders(image_size: tuple[int, int], single_cls: bool, num_worker
                        cutout_prob: float,
                        random_crop: bool = False, augmentation_hyperparams_file: typing.Optional[str] = None) -> \
         tuple[DataLoader, DataLoader, PascalVOCDataset, PascalVOCDataset]:
+    # necessary in order to put train_augmentation_vx in globals()
+    # from augmentations import train_augmentation_v1, train_augmentation_v2, train_augmentation_v3
+
     if augmentation_version > 2:
         if augmentation_hyperparams_file is not None:
             augmentation_params = read_yaml_file(file_path=augmentation_hyperparams_file)
@@ -246,11 +247,11 @@ if __name__ == "__main__":
     # Download datasets
     datasets = experiment.list_attached_dataset_versions()
 
-    # if not os.path.exists(dataset_root_folder):
-    #     download_datasets(experiment=experiment, root_folder=dataset_root_folder)
-    # else:
-    #     logging.warning(f'A dataset was previously imported before the training.')
-    download_datasets(experiment=experiment, root_folder=dataset_root_folder)
+    if not os.path.exists(dataset_root_folder):
+        download_datasets(experiment=experiment, root_folder=dataset_root_folder)
+    else:
+        logging.warning(f'A dataset was previously imported before the training.')
+    # download_datasets(experiment=experiment, root_folder=dataset_root_folder)
 
     base_model = experiment.get_base_model_version()
 
@@ -307,88 +308,103 @@ if __name__ == "__main__":
         mosaic_prob=float(parameters['mosaic']) if 'mosaic' in parameters.keys() else 0.0,
         cutout_prob=float(parameters['cutout']) if 'cutout' in parameters.keys() else 0.0,
         mixup_prob=float(parameters['mixup']) if 'mixup' in parameters.keys() else 0.0,
-
+        augmentation_hyperparams_file=None
     )
 
     class_mapping = get_class_mapping_from_picsellia(dataset_versions=datasets,
                                                      single_cls=training_parameters.single_class)
 
-    if training_parameters.anchor_boxes.auto_size:
-        """
-        # first version of the anchor boxes optimizer
-        anchor_boxes_optimizer = AnchorBoxOptimizer(dataloader=train_dataloader,
-                                                    add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
-        anchor_sizes = anchor_boxes_optimizer.get_anchor_boxes_sizes()
-        training_parameters.anchor_boxes.sizes = anchor_sizes
-        # (0.5, 1.0, 2.0) is RetinaNet aspect_ratio by default
-        training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
-        """
+    # model creation
+    fine_tuned, base_experiment = is_finetune(model_version=base_model)
 
-        anchors_parameters = compute_optimized_anchors(
-            annotations_path=os.path.join(dataset_root_folder, 'train', 'Annotations'),
-            image_size=training_parameters.image_size,
-            temp_csv_filepath='labels.csv')
+    if not fine_tuned:
+        print('Train model from scratch')
+        if training_parameters.anchor_boxes.auto_size:
+            """
+            # first version of the anchor boxes optimizer
+            anchor_boxes_optimizer = AnchorBoxOptimizer(dataloader=train_dataloader,
+                                                        add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN)
+            anchor_sizes = anchor_boxes_optimizer.get_anchor_boxes_sizes()
+            training_parameters.anchor_boxes.sizes = anchor_sizes
+            # (0.5, 1.0, 2.0) is RetinaNet aspect_ratio by default
+            training_parameters.anchor_boxes.aspect_ratios = tuple([(0.5, 1, 2) for i in range(len(anchor_sizes))])
+            """
 
-        training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
-        training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
+            anchors_parameters = compute_optimized_anchors(
+                annotations_path=os.path.join(dataset_root_folder, 'train', 'Annotations'),
+                image_size=training_parameters.image_size,
+                temp_csv_filepath='labels.csv')
+
+            training_parameters.anchor_boxes.sizes = anchors_parameters['sizes']
+            training_parameters.anchor_boxes.aspect_ratios = [float(r) for r in anchors_parameters['ratios']]
+
+        # Build model
+        if training_parameters.backbone.backbone_type == BackboneType.ConvNeXt:
+            model = build_convnext_model(num_classes=len(class_mapping),
+                                         use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
+                                         score_threshold=training_parameters.confidence_threshold,
+                                         iou_threshold=training_parameters.iou_threshold,
+                                         unfrozen_layers=training_parameters.unfreeze,
+                                         mean_values=training_parameters.augmentations.normalization.mean,
+                                         std_values=training_parameters.augmentations.normalization.std,
+                                         anchor_boxes_params=training_parameters.anchor_boxes,
+                                         fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                         bg_iou_thresh=training_parameters.bg_iou_thresh,
+                                         backbone_type=training_parameters.backbone.backbone_type,
+                                         backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
+                                         add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
+                                         extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
+                                         image_size=training_parameters.image_size,
+                                         alpha_loss=training_parameters.loss.alpha_loss,
+                                         gamma_loss=training_parameters.loss.gamma_loss
+                                         )
+
+        elif training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
+            model = build_retinanet_model(num_classes=len(class_mapping),
+                                          use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
+                                          score_threshold=training_parameters.confidence_threshold,
+                                          iou_threshold=training_parameters.iou_threshold,
+                                          unfrozen_layers=training_parameters.unfreeze,
+                                          mean_values=training_parameters.augmentations.normalization.mean,
+                                          std_values=training_parameters.augmentations.normalization.std,
+                                          anchor_boxes_params=training_parameters.anchor_boxes,
+                                          fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                          bg_iou_thresh=training_parameters.bg_iou_thresh,
+                                          image_size=training_parameters.image_size,
+                                          alpha_loss=training_parameters.loss.alpha_loss,
+                                          gamma_loss=training_parameters.loss.gamma_loss)
+
+        else:
+            model = build_model(num_classes=len(class_mapping),
+                                use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
+                                score_threshold=training_parameters.confidence_threshold,
+                                iou_threshold=training_parameters.iou_threshold,
+                                unfrozen_layers=training_parameters.unfreeze,
+                                mean_values=training_parameters.augmentations.normalization.mean,
+                                std_values=training_parameters.augmentations.normalization.std,
+                                anchor_boxes_params=training_parameters.anchor_boxes,
+                                fg_iou_thresh=training_parameters.fg_iou_thresh,
+                                bg_iou_thresh=training_parameters.bg_iou_thresh,
+                                backbone_type=training_parameters.backbone.backbone_type,
+                                backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
+                                add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
+                                extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
+                                image_size=training_parameters.image_size,
+                                alpha_loss=training_parameters.loss.alpha_loss,
+                                gamma_loss=training_parameters.loss.gamma_loss
+                                )
 
 
-    # Build model
-    if training_parameters.backbone.backbone_type == BackboneType.ConvNeXt:
-        print('convnext')
-        model = build_convnext_model(num_classes=len(class_mapping),
-                            use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
-                            score_threshold=training_parameters.confidence_threshold,
-                            iou_threshold=training_parameters.iou_threshold,
-                            unfrozen_layers=training_parameters.unfreeze,
-                            mean_values=training_parameters.augmentations.normalization.mean,
-                            std_values=training_parameters.augmentations.normalization.std,
-                            anchor_boxes_params=training_parameters.anchor_boxes,
-                            fg_iou_thresh=training_parameters.fg_iou_thresh,
-                            bg_iou_thresh=training_parameters.bg_iou_thresh,
-                            backbone_type=training_parameters.backbone.backbone_type,
-                            backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
-                            add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
-                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
-                            image_size=training_parameters.image_size,
-                            alpha_loss=training_parameters.loss.alpha_loss,
-                            gamma_loss=training_parameters.loss.gamma_loss
-                            )
-
-    elif training_parameters.backbone.backbone_layers_nb == 50 and training_parameters.version == 2:
-        model = build_retinanet_model(num_classes=len(class_mapping),
-                                      use_COCO_pretrained_weights=training_parameters.coco_pretrained_weights,
-                                      score_threshold=training_parameters.confidence_threshold,
-                                      iou_threshold=training_parameters.iou_threshold,
-                                      unfrozen_layers=training_parameters.unfreeze,
-                                      mean_values=training_parameters.augmentations.normalization.mean,
-                                      std_values=training_parameters.augmentations.normalization.std,
-                                      anchor_boxes_params=training_parameters.anchor_boxes,
-                                      fg_iou_thresh=training_parameters.fg_iou_thresh,
-                                      bg_iou_thresh=training_parameters.bg_iou_thresh,
-                                      image_size=training_parameters.image_size,
-                                      alpha_loss=training_parameters.loss.alpha_loss,
-                                      gamma_loss=training_parameters.loss.gamma_loss)
 
     else:
-        model = build_model(num_classes=len(class_mapping),
-                            use_imageNet_pretrained_weights=training_parameters.coco_pretrained_weights,
-                            score_threshold=training_parameters.confidence_threshold,
-                            iou_threshold=training_parameters.iou_threshold,
-                            unfrozen_layers=training_parameters.unfreeze,
-                            mean_values=training_parameters.augmentations.normalization.mean,
-                            std_values=training_parameters.augmentations.normalization.std,
-                            anchor_boxes_params=training_parameters.anchor_boxes,
-                            fg_iou_thresh=training_parameters.fg_iou_thresh,
-                            bg_iou_thresh=training_parameters.bg_iou_thresh,
-                            backbone_type=training_parameters.backbone.backbone_type,
-                            backbone_layers_nb=training_parameters.backbone.backbone_layers_nb,
-                            add_P2_to_FPN=training_parameters.backbone.add_P2_to_FPN,
-                            extra_blocks_FPN=training_parameters.backbone.extra_blocks_FPN,
-                            image_size=training_parameters.image_size,
-                            alpha_loss=training_parameters.loss.alpha_loss,
-                            gamma_loss=training_parameters.loss.gamma_loss
-                            )
+        print('Retrain model from already fine-tuned model')
+        model_artifact = base_experiment.get_artifact('model-latest')
+        model_weights_path = download_model_version(model_artifact=model_artifact,
+                                                    model_target_path='tmp')
+        model = load_trained_model(experiment=base_experiment, unfrozen_layers=training_parameters.unfreeze,
+                                   iou_threshold=training_parameters.iou_threshold,
+                                   confidence_threshold=training_parameters.confidence_threshold,
+                                   model_weights_path=model_weights_path)
 
     model.to(device)
 
@@ -401,7 +417,7 @@ if __name__ == "__main__":
         lr_scheduler = torch.optim.lr_scheduler.CyclicLR(
             optimizer,
             mode='triangular2',
-            base_lr=float(training_parameters.learning_rate.initial_lr)/4,
+            base_lr=float(training_parameters.learning_rate.initial_lr) / 4,
             max_lr=float(training_parameters.learning_rate.initial_lr),
             step_size_up=10)
 

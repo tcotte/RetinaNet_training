@@ -11,19 +11,10 @@ RUN  rm /usr/lib/python3.12/EXTERNALLY-MANAGED
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install -r requirements.txt --trusted-host developer.download.nvidia.com
 RUN pip3 install object-detection-metrics
+RUN pip3 install shapely
 
 
 RUN #pip3 install -r requirements.txt --trusted-host developer.download.nvidia.com
-#
-## https://github.com/albumentations-team/albumentations/issues/1043#issuecomment-2624240007
-#
-##RUN pip install numpy==1.26.4
-##RUN pip install opencv-python==4.7.0.72
-##RUN pip install torchmetrics --upgrade
-#
-##RUN pip install -r requirements.txt
-#
-#
 
 WORKDIR /picsellia_folder
 

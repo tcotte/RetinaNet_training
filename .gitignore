@@ -183,3 +183,4 @@ training_image/picsellia_folder/*.yaml
 */dataset
 models/
 */tmp/
+tmp/

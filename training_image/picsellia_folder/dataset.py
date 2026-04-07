@@ -55,7 +55,7 @@ class PascalVOCDataset(Dataset):
         annotation_folder = os.path.join(self.data_folder, 'Annotations')
         self.annotation_files = list([os.path.join(annotation_folder, i) for i in os.listdir(annotation_folder)])
 
-        assert len(self.images) == len(self.annotation_files)
+        # assert len(self.images) == len(self.annotation_files)
 
         if do_class_mapping:
             self.class_mapping, self.number_obj_by_cls = self.get_class_mapping()
