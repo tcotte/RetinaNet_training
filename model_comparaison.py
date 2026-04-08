@@ -37,14 +37,9 @@ if __name__ == '__main__':
         d['augmentations_normalization_std'] = str(d['augmentations_normalization_std'])
         d['augmentations_normalization_mean'] = str(d['augmentations_normalization_mean'])
 
-
         if i == 0:
             df = pd.DataFrame.from_records([d])
         else:
             df = pd.concat([df, pd.DataFrame([d])], ignore_index=True)
 
     df.to_excel('output.xlsx')
-
-
-
-

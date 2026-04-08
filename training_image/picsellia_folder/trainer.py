@@ -62,7 +62,7 @@ def train_model(model, optimizer, train_data_loader, val_data_loader, lr_schedul
 
     def reg_nan_hook(module, inp, out):
         if torch.isnan(out).any() or torch.isinf(out).any():
-            print("🔥 NaN/Inf in regression head output")
+            print("NaN/Inf in regression head output")
 
     early_stopper = EarlyStopper(patience=patience)
     visualisation_val_loss = True

@@ -237,8 +237,7 @@ def get_GPU_occupancy(gpu_id: int = 0) -> float:
 
 def load_trained_model(experiment: Experiment, unfrozen_layers: int, iou_threshold: float,
                        confidence_threshold: float, model_weights_path: str) -> nn.Module:
-    inference_size = (experiment.get_log('All parameters').data['image_size'],
-                  experiment.get_log('All parameters').data['image_size'])
+    inference_size = experiment.get_log('All parameters').data['image_size']
 
     if (len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 1 or
             len(experiment.get_log('All parameters').data['anchor_boxes_aspect_ratios']) == 3):

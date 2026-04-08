@@ -1,0 +1,20 @@
+HueSaturationValue:
+  hue: 0.015
+  sat: 0.7
+  val: 0.4
+  prob: 1.0
+Rotate:
+  prob: 0.0
+  limit: 90
+Translation:
+  shift_limit: 0.5
+  prob: 0.1
+Scale:
+  scale_limit: 0.5
+  prob: 0.5
+VerticalFlip:
+  prob: 0.0
+HorizontalFlip:
+  prob: 0.5
+Mosaic:
+  prob: 0.5
