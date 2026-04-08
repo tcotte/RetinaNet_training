@@ -486,4 +486,4 @@ if __name__ == "__main__":
                                   experiment=experiment,
                                   dataset_version_name=test_dataset_split,
                                   device=device)
-    compute_evaluation_metrics(experiment=experiment)
+    compute_evaluation_metrics(experiment=experiment, client=client)

@@ -176,7 +176,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         with torch.no_grad():
             predictions = model(images)
             metric.update(predictions, targets)
-            # print(metric.compute()['map_50'])
+            print(metric.compute()['map_50'])
 
         for idx in range(len(images)):
             asset = dataset_version.find_asset(filename=file_paths[idx])
