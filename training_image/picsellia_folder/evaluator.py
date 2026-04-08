@@ -177,7 +177,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
             predictions = model(images)
             metric.update(predictions, targets)
             print('Predictions labels: ', predictions[0]['labels'])
-            print('Targets labels: ', predictions[0]['targets'])
+            print('Targets labels: ', targets[0]['labels'])
             print(metric.compute()['map_50'])
             print(f'{float(metric.compute()["map_50"]): .3}')
 
