@@ -157,20 +157,7 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         print(data)
         experiment.log(name='Final results', type=LogType.TABLE, data=data)
 
-    # def log_final_metrics(experiment: Experiment):
-    #     evaluations = experiment.list_evaluations()
-    #
-    #     metrics = {'mAP[50]': [],
-    #                'mAP[75]': [],
-    #                'Recall': [],
-    #                'Precision': []}
-    #
-    #     for evaluation in evaluations:
-    #         sync_eval = evaluation.sync()
-    #
-    #         metrics['mAP[50]'].append(sync_eval['ap_50'])
-    #         metrics['mAP[75]'].append(sync_eval['ap_75'])
-    #         metrics['mAP[50]'].append(sync_eval['ap50'])
+
 
 
     metric = MeanAveragePrecision(iou_type="bbox", max_detection_thresholds=[3000, 5000, 10000],
@@ -192,10 +179,6 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         with torch.no_grad():
             predictions = model(images)
             metric.update(predictions, targets)
-            print('Predictions: ', predictions[0])
-            print('Targets: ', targets[0])
-            print(metric.compute()['map_50'])
-            print(f'{float(metric.compute()["map_50"]): .3}')
 
         for idx in range(len(images)):
             asset = dataset_version.find_asset(filename=file_paths[idx])
@@ -269,8 +252,8 @@ if __name__ == '__main__':
     # print(os.getcwd())
     # download_dataset_version(root='./dataset', alias='val', experiment=experiment)
     #
-    model_weights_path = r'C:\Users\tristan_cotte\Downloads\ef94b0d1-ab32-45cb-b9a6-3576245c62eb-latest\content\saved_models\latest.pth'
-    test_dataset_path = r'C:\Users\tristan_cotte\PycharmProjects\datasets\val'
+    model_weights_path = r''
+    test_dataset_path = r''
     training_parameters = TrainingParameters(**experiment.get_log('All parameters').data)
     training_parameters.device = device.type
     if device.type == 'cuda':

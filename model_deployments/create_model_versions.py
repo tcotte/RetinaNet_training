@@ -42,6 +42,16 @@ def create_retinanet_model_version(model: picsellia.Model, nb_layers: int, base_
     return model_version
 
 
+def update_docker_image_version(model: picsellia.Model, docker_tag: str) -> None:
+    """
+    Update docker image tag in every version of the model passed in parameter
+    :param model: Picsellia model where the user wants to update the docker image tag
+    :param docker_tag: docker tag
+    """
+    for model_version in model.list_versions():
+        model_version.update(docker_tag=docker_tag)
+
+
 if __name__ == '__main__':
 
     client = Client(api_token=os.environ['picsellia_api_token'], organization_name='SGS_France')
