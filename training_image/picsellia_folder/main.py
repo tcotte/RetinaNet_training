@@ -464,7 +464,7 @@ if __name__ == "__main__":
     valid_transform = A.Compose([
         A.Resize(*training_parameters.image_size),
         ToTensorV2()
-    ])
+    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.5))
 
     test_dataset_split = get_test_dataset_split(nb_splits_dataset=len(experiment.list_attached_dataset_versions()))
     test_dataset = PascalVOCDataset(

@@ -157,6 +157,22 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         print(data)
         experiment.log(name='Final results', type=LogType.TABLE, data=data)
 
+    # def log_final_metrics(experiment: Experiment):
+    #     evaluations = experiment.list_evaluations()
+    #
+    #     metrics = {'mAP[50]': [],
+    #                'mAP[75]': [],
+    #                'Recall': [],
+    #                'Precision': []}
+    #
+    #     for evaluation in evaluations:
+    #         sync_eval = evaluation.sync()
+    #
+    #         metrics['mAP[50]'].append(sync_eval['ap_50'])
+    #         metrics['mAP[75]'].append(sync_eval['ap_75'])
+    #         metrics['mAP[50]'].append(sync_eval['ap50'])
+
+
     metric = MeanAveragePrecision(iou_type="bbox", max_detection_thresholds=[3000, 5000, 10000],
                                   extended_summary=True)
 
@@ -176,8 +192,8 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
         with torch.no_grad():
             predictions = model(images)
             metric.update(predictions, targets)
-            print('Predictions labels: ', predictions[0]['labels'])
-            print('Targets labels: ', targets[0]['labels'])
+            print('Predictions: ', predictions[0])
+            print('Targets: ', targets[0])
             print(metric.compute()['map_50'])
             print(f'{float(metric.compute()["map_50"]): .3}')
 
@@ -211,10 +227,15 @@ def fill_picsellia_evaluation_tab(model: RetinaNet, data_loader: torch.utils.dat
                 picsellia_rectangles.append(rectangle)
 
             experiment.add_evaluation(asset, rectangles=picsellia_rectangles)
+
     log_final_metrics(results=metric.compute())
+
 
     job = experiment.compute_evaluations_metrics(InferenceType.OBJECT_DETECTION)
     job.wait_for_done(blocking_time_increment=120.0)
+
+
+
 
 # def download_dataset_version(root, alias, experiment):
 #     from training_image.picsellia_folder.utils import download_annotations
